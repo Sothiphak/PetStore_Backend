@@ -20,6 +20,7 @@ connectDB();
 app.use('/api/auth', require('./routes/authRoutes'));       // Register, Login, Profile
 app.use('/api/products', require('./routes/productRoutes')); // Browse products
 app.use('/api/orders', require('./routes/orderRoutes'));     // Checkout, Order History
+app.use('/api/payment', require('./routes/paymentRoutes'));
 
 // --- 4. Base Route (Health Check) ---
 // Useful to test if the server is alive by visiting http://localhost:5000

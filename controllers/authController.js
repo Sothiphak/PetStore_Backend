@@ -14,25 +14,20 @@ const generateToken = (id, role) => {
 // @route   POST /api/auth/register
 exports.register = async (req, res) => {
   try {
-    // 1. Get data from the frontend (Added firstName & lastName)
     const { firstName, lastName, email, password } = req.body;
 
-    // 2. Validation: Make sure all fields are present
     if (!firstName || !lastName || !email || !password) {
       return res.status(400).json({ message: 'Please fill in all fields' });
     }
 
-    // 3. Check if user already exists
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    // 4. Hash the password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 5. Create user (Now including names)
     const user = await User.create({
       firstName,
       lastName,
@@ -63,20 +58,17 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    // 1. Check for user email
     const user = await User.findOne({ email });
 
-    // 2. Check password
     if (user && (await bcrypt.compare(password, user.password))) {
       res.json({
         _id: user._id,
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        phone: user.phone,      // Sending this for your Profile Screen
-        address: user.address,  // Sending this for your Profile Screen
-        loyaltyPoints: user.loyaltyPoints, // Sending this for your Profile Screen
+        phone: user.phone,
+        address: user.address,
+        loyaltyPoints: user.loyaltyPoints,
         role: user.role,
         token: generateToken(user._id, user.role),
       });
@@ -89,11 +81,41 @@ exports.login = async (req, res) => {
   }
 };
 
+// 👇👇👇 NEW FUNCTION ADDED HERE 👇👇👇
+
+// @desc    Get User Profile
+// @route   GET /api/auth/profile
+exports.getUserProfile = async (req, res) => {
+  try {
+    // req.user is set by the 'protect' middleware
+    const user = await User.findById(req.user._id).select('-password'); 
+
+    if (user) {
+      res.json({
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        phone: user.phone,
+        address: user.address,
+        loyaltyPoints: user.loyaltyPoints || 0,
+        role: user.role,
+      });
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (error) {
+    console.error('Get Profile Error:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// 👆👆👆 END OF NEW FUNCTION 👆👆👆
+
 // @desc    Update User Profile
 // @route   PUT /api/auth/profile
 exports.updateProfile = async (req, res) => {
   try {
-    // req.user is set by the 'protect' middleware (we will add this later)
     const user = await User.findById(req.user._id);
 
     if (user) {
@@ -103,7 +125,6 @@ exports.updateProfile = async (req, res) => {
       user.phone = req.body.phone || user.phone;
       user.address = req.body.address || user.address;
       
-      // If user wants to change password
       if (req.body.password) {
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(req.body.password, salt);
