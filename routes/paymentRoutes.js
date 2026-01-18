@@ -3,7 +3,7 @@ const router = express.Router();
 const Stripe = require('stripe');
 
 // 🟢 MAKE SURE YOUR SECRET KEY IS HERE
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 router.post('/create-payment-intent', async (req, res) => {
   try {
