@@ -1,11 +1,13 @@
+// backend/models/User.js
 const mongoose = require('mongoose');
+const crypto = require('crypto'); // Built-in Node module
 
 const UserSchema = new mongoose.Schema({
-  // --- 1. Identity Information ---
+  // ... (Your existing fields: firstName, lastName, email, password, etc.) ...
   firstName: { 
     type: String, 
     required: true,
-    trim: true // Removes extra spaces
+    trim: true 
   },
   lastName: { 
     type: String, 
@@ -22,37 +24,33 @@ const UserSchema = new mongoose.Schema({
     type: String, 
     required: true 
   },
+  phone: { type: String, default: '' },
+  address: { type: String, default: '' },
+  role: { type: String, enum: ['customer', 'admin'], default: 'customer' },
+  loyaltyPoints: { type: Number, default: 0 },
+  wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
 
-  // --- 2. Contact Information (From your UI) ---
-  phone: { 
-    type: String, 
-    default: '' // Default to empty string if not provided
-  },
-  address: { 
-    type: String, 
-    default: '' // Use a simple string to match your single text box input
-  },
-
-  // --- 3. System Fields ---
-  role: { 
-    type: String, 
-    enum: ['customer', 'admin'], 
-    default: 'customer' 
-  },
-  loyaltyPoints: { 
-    type: Number, 
-    default: 0 // You can increase this logic later when they buy items
-  },
-
-  // --- 4. Features ---
-  wishlist: [{ 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Product' 
-  }],
-  
-  // Note: We do NOT need an 'orders' array here. 
-  // We will find orders by searching the Order collection for this User's ID.
+  // 👇 ADD THESE NEW FIELDS FOR RESET TOKEN 👇
+  resetPasswordToken: String,
+  resetPasswordExpire: Date
 
 }, { timestamps: true });
+
+// 👇 ADD THIS METHOD to generate the token 👇
+UserSchema.methods.getResetPasswordToken = function() {
+  // 1. Generate a random token
+  const resetToken = crypto.randomBytes(20).toString('hex');
+
+  // 2. Hash the token and save it to the database field
+  this.resetPasswordToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+
+  // 3. Set expiration (10 minutes)
+  this.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+
+  return resetToken; // Return the unhashed token to send via email
+};
 
 module.exports = mongoose.model('User', UserSchema);

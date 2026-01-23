@@ -1,6 +1,8 @@
+// server/controllers/orderController.js
 const Order = require('../models/Order');
 const Product = require('../models/Product'); 
-const sendEmail = require('../utils/sendEmail'); // Ensure this file exists in backend/utils/
+const sendEmail = require('../utils/sendEmail'); 
+const PaymentService = require('../services/paymentService'); 
 
 exports.addOrderItems = async (req, res) => {
   try {
@@ -20,20 +22,7 @@ exports.addOrderItems = async (req, res) => {
       return res.status(400).json({ message: 'No order items' });
     } 
 
-    // 1. Verify Stock
-    for (const item of orderItems) {
-      const productInDb = await Product.findById(item.product);
-      if (!productInDb) {
-        return res.status(404).json({ message: `Product not found: ${item.name}` });
-      }
-      if (productInDb.stockQuantity < item.quantity) {
-        return res.status(400).json({ 
-          message: `Sorry, ${item.name} is out of stock (Only ${productInDb.stockQuantity} left).` 
-        });
-      }
-    }
-
-    // 2. Create the Order
+    // 1. Create the Order Object (Do not save yet)
     const order = new Order({
       orderItems,
       user: req.user._id,
@@ -44,60 +33,84 @@ exports.addOrderItems = async (req, res) => {
       shippingPrice,
       totalPrice,
       isPaid: isPaid === true, 
-      paidAt: isPaid ? (paidAt || Date.now()) : null
+      paidAt: isPaid ? (paidAt || Date.now()) : null,
+      status: 'Pending'
     });
 
-    const createdOrder = await order.save();
-
-    // 3. Update Inventory & Check for Low Stock
-    for (const item of orderItems) {
-      // { new: true } returns the updated product so we can see the NEW stock level
-      const updatedProduct = await Product.findByIdAndUpdate(item.product, {
-        $inc: { stockQuantity: -item.quantity } 
-      }, { new: true });
-
-      // 🔔 LOW STOCK ALERT
-      if (updatedProduct && updatedProduct.stockQuantity < 5) {
-        console.log(`⚠️ LOW STOCK ALERT: ${updatedProduct.name} is down to ${updatedProduct.stockQuantity}!`);
-        // You could also trigger an admin email here using sendEmail()
-      }
+    // 🟢 BAKONG LOGIC
+    if (paymentMethod === 'Bakong') {
+        const billNumber = order._id.toString().slice(-10);
+        const qrResult = await PaymentService.generateKHQR(totalPrice, billNumber);
+        
+        if (qrResult.success) {
+            order.paymentResult = {
+                id: qrResult.md5,
+                status: 'pending',
+                email_address: req.user.email
+            };
+            
+            await order.save(); // Save only if QR gen worked
+            
+            return res.status(201).json({
+                _id: order._id,
+                qrImage: qrResult.qrImage,
+                isBakong: true,
+                totalPrice,
+                paymentMethod
+            });
+        } else {
+            // 🛑 CRITICAL FIX: If QR Gen fails, STOP the order!
+            console.error("KHQR Generation Failed. Check Merchant Credentials.");
+            return res.status(400).json({ 
+                message: "Payment Gateway Error: Could not generate KHQR. Please check merchant credentials or try COD." 
+            });
+        }
     }
 
-    // 4. 📧 SEND ORDER CONFIRMATION EMAIL
-    // We wrap this in a try/catch so email failures don't crash the whole order process
-    try {
-      const message = `
-        <div style="font-family: Arial, sans-serif; color: #333;">
-          <h1 style="color: #009200;">Order Confirmed! 🐾</h1>
-          <p>Hi ${req.user.firstName},</p>
-          <p>Thank you for shopping with PetStore+. We have received your order.</p>
-          <div style="background: #f4f4f4; padding: 15px; border-radius: 8px;">
-            <p><strong>Order ID:</strong> ${createdOrder._id}</p>
-            <p><strong>Total Amount:</strong> $${totalPrice}</p>
-            <p><strong>Payment Method:</strong> ${paymentMethod}</p>
-          </div>
-          <p>We will notify you when your items ship!</p>
-        </div>
-      `;
+    // 2. Standard Order Save (COD, Card, etc.)
+    const createdOrder = await order.save();
 
-      await sendEmail({
-        email: req.user.email,
-        subject: 'Order Confirmation - PetStore+',
-        message
-      });
-      
-      console.log(`📧 Confirmation email sent to: ${req.user.email}`);
-    } catch (emailError) {
-      console.error('Email could not be sent:', emailError.message);
-      // We do NOT return an error here, because the order was already successful.
+    // 📧 Send Email for standard orders
+    if (paymentMethod !== 'Bakong') {
+        try {
+            await sendEmail({
+                email: req.user.email,
+                subject: 'Order Confirmation - PetStore+',
+                message: `Order received! ID: ${createdOrder._id}`
+            });
+        } catch (e) { console.error('Email failed', e.message); }
     }
 
     res.status(201).json(createdOrder);
     
   } catch (error) {
     console.error('Order Create Error:', error);
-    res.status(500).json({ message: 'Server Error' });
+    res.status(500).json({ message: 'Server Error: ' + error.message });
   }
+};
+
+// ... keep checkOrderPayment, getMyOrders, getOrderById as they were ...
+exports.checkOrderPayment = async (req, res) => {
+    const order = await Order.findById(req.params.id);
+    if (order) {
+        if (order.isPaid) return res.json({ paid: true });
+
+        if (order.paymentMethod === 'Bakong' && order.paymentResult?.id) {
+            const isPaid = await PaymentService.checkTransaction(order.paymentResult.id);
+            if (isPaid) {
+                order.isPaid = true;
+                order.paidAt = Date.now();
+                order.paymentResult.status = 'success';
+                order.status = 'Processing';
+                await order.save();
+                return res.json({ paid: true });
+            }
+        }
+        return res.json({ paid: false });
+    } else {
+        res.status(404);
+        throw new Error('Order not found');
+    }
 };
 
 exports.getMyOrders = async (req, res) => {

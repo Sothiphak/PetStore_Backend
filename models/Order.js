@@ -1,3 +1,4 @@
+// server/models/Order.js
 const mongoose = require('mongoose');
 
 const OrderSchema = new mongoose.Schema({
@@ -7,12 +8,6 @@ const OrderSchema = new mongoose.Schema({
     required: true 
   },
   
-  promotion: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Promotion',
-    default: null
-  },
-
   orderItems: [
     {
       product: { 
@@ -22,12 +17,11 @@ const OrderSchema = new mongoose.Schema({
       },
       name: { type: String, required: true },
       quantity: { type: Number, required: true },
-      price: { type: Number, required: true }, // Price *at time of purchase*
+      price: { type: Number, required: true },
       image: { type: String, required: true }
     }
   ],
 
-  // Embedded Shipping Address
   shippingAddress: {
     address: { type: String, required: true },
     city: { type: String, required: true },
@@ -37,14 +31,19 @@ const OrderSchema = new mongoose.Schema({
 
   paymentMethod: { type: String, required: true },
   
-  // Financials
+  // 👇 Updated Payment Result for Bakong MD5 Support
+  paymentResult: {
+    id: { type: String }, // Stores MD5 hash for Bakong
+    status: { type: String },
+    update_time: { type: String },
+    email_address: { type: String },
+  },
+
   itemsPrice: { type: Number, required: true, default: 0.0 },
   taxPrice: { type: Number, required: true, default: 0.0 },
   shippingPrice: { type: Number, required: true, default: 0.0 },
-  discountAmount: { type: Number, default: 0.0 }, // Value of the coupon used
   totalPrice: { type: Number, required: true, default: 0.0 },
 
-  // Status Flags
   isPaid: { type: Boolean, required: true, default: false },
   paidAt: { type: Date },
   

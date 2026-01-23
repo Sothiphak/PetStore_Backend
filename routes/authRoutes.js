@@ -1,18 +1,25 @@
 const express = require('express');
 const router = express.Router();
 
-// Import the controller functions (Make sure getUserProfile is included!)
-const { register, login, updateProfile, getUserProfile } = require('../controllers/authController');
+const { 
+  register, 
+  login, 
+  getUserProfile, 
+  updateProfile,
+  forgotPassword, // 👈 Import this
+  resetPassword   // 👈 Import this
+} = require('../controllers/authController');
 
 const { protect } = require('../middleware/authMiddleware');
 
 router.post('/register', register);
 router.post('/login', login);
 
-// ✅ THIS WAS MISSING: The route to GET data
 router.get('/profile', protect, getUserProfile); 
-
-// The route to UPDATE data
 router.put('/profile', protect, updateProfile);
+
+// 👇 New Password Reset Routes
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 
 module.exports = router;

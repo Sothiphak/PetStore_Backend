@@ -2,7 +2,8 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-
+const crypto = require('crypto'); 
+const sendEmail = require('../utils/sendEmail'); 
 // Helper: Generate JWT Token
 const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, {
@@ -110,7 +111,6 @@ exports.getUserProfile = async (req, res) => {
   }
 };
 
-// 👆👆👆 END OF NEW FUNCTION 👆👆👆
 
 // @desc    Update User Profile
 // @route   PUT /api/auth/profile
@@ -148,6 +148,88 @@ exports.updateProfile = async (req, res) => {
     }
   } catch (error) {
     console.error('Update Profile Error:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+exports.forgotPassword = async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.body.email });
+
+    if (!user) {
+      return res.status(404).json({ message: 'No user found with that email' });
+    }
+
+    // Get reset token
+    const resetToken = user.getResetPasswordToken();
+
+    // Save user with new token fields (validateBeforeSave: false ensures we don't trigger other validation errors)
+    await user.save({ validateBeforeSave: false });
+
+    // Create the reset URL (Point to your Frontend)
+    // Ensure CLIENT_URL is in your .env (e.g., http://localhost:5173)
+    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+
+    const message = `
+      <h1>Password Reset Request</h1>
+      <p>You requested a password reset. Please click the link below to set a new password:</p>
+      <a href="${resetUrl}" clicktracking=off>${resetUrl}</a>
+    `;
+
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: 'PetStore+ Password Reset',
+        message,
+      });
+
+      res.status(200).json({ success: true, data: 'Email sent' });
+    } catch (err) {
+      console.error(err);
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+
+      await user.save({ validateBeforeSave: false });
+
+      return res.status(500).json({ message: 'Email could not be sent' });
+    }
+  } catch (error) {
+    console.error('Forgot Password Error:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// 👇 ADD THIS: Reset Password Logic
+exports.resetPassword = async (req, res) => {
+  try {
+    // Hash the token from the URL to compare with the DB
+    const resetPasswordToken = crypto
+      .createHash('sha256')
+      .update(req.body.token)
+      .digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken,
+      resetPasswordExpire: { $gt: Date.now() }, // Check if token is not expired
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+
+    // Set new password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(req.body.newPassword, salt);
+
+    // Clear reset fields
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'Password updated successfully' });
+  } catch (error) {
+    console.error('Reset Password Error:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 };
