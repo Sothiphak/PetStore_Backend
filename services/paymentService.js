@@ -5,12 +5,13 @@ const axios = require('axios');
 
 class PaymentService {
     constructor() {
-        // TEST CREDENTIALS
-        this.merchantId = process.env.BAKONG_MERCHANT_ID;
-        this.merchantName = process.env.BAKONG_MERCHANT_NAME;
+        this.merchantId = process.env.BAKONG_MERCHANT_ID || "khqr@aclb";
+        this.merchantName = process.env.BAKONG_MERCHANT_NAME || "PetStore+";
         this.merchantCity = "Phnom Penh";
-        this.acquiringBank = process.env.BAKONG_ACQUIRING_BANK;
-        this.bakongToken = process.env.BAKONG_API_TOKEN;
+        this.acquiringBank = process.env.BAKONG_ACQUIRING_BANK || "Acleda Bank"; 
+        
+        // Keep Token
+        this.bakongToken = process.env.BAKONG_API_TOKEN || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImlkIjoiMWJkMDEzZTRlNDExNGE0YSJ9LCJpYXQiOjE3NjkxNTc3NTQsImV4cCI6MTc3NjkzMzc1NH0.1lh20A_epTUhJPWFu15yq_CqZ6WbeL2XhV0Z-dclNCo";
         this.bakongApiUrl = "https://api-bakong.nbc.gov.kh/v1/check_transaction_by_md5";
     }
 
