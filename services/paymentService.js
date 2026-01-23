@@ -5,11 +5,14 @@ const axios = require('axios');
 
 class PaymentService {
     constructor() {
-        // ⚠️ In a real app, move these to your .env file
-        this.bakongToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImlkIjoiMWJkMDEzZTRlNDExNGE0YSJ9LCJpYXQiOjE3NjkxNTc3NTQsImV4cCI6MTc3NjkzMzc1NH0.1lh20A_epTUhJPWFu15yq_CqZ6WbeL2XhV0Z-dclNCo";
+        // ✅ USE THESE TEST CREDENTIALS (They generate a valid QR for testing)
         this.merchantId = "petstore_admin@aclb"; 
         this.merchantName = "PetStore+";
         this.merchantCity = "Phnom Penh";
+        this.acquiringBank = "Acleda Bank"; 
+
+        // Keep your token as is
+        this.bakongToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImlkIjoiMWJkMDEzZTRlNDExNGE0YSJ9LCJpYXQiOjE3NjkxNTc3NTQsImV4cCI6MTc3NjkzMzc1NH0.1lh20A_epTUhJPWFu15yq_CqZ6WbeL2XhV0Z-dclNCo";
         this.bakongApiUrl = "https://api-bakong.nbc.gov.kh/v1/check_transaction_by_md5";
     }
 
