@@ -2,60 +2,75 @@ const Product = require('../models/Product');
 
 // @desc    Fetch all products
 // @route   GET /api/products
+// @access  Public
 exports.getProducts = async (req, res) => {
   try {
     const products = await Product.find({});
     res.json(products);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server Error' });
   }
 };
 
 // @desc    Fetch single product
 // @route   GET /api/products/:id
+// @access  Public
 exports.getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
-    if (product) res.json(product);
-    else res.status(404).json({ message: 'Product not found' });
+    if (product) {
+      res.json(product);
+    } else {
+      res.status(404).json({ message: 'Product not found' });
+    }
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server Error' });
   }
 };
 
-// @desc    Create a new product (Supports File Upload)
+// @desc    Create a new product
 // @route   POST /api/products
+// @access  Private/Admin
 exports.createProduct = async (req, res) => {
   try {
     const { name, price, description, category, stockQuantity } = req.body;
     
-    // 🟢 HANDLE IMAGE: File vs String
-    let imagePath = 'https://via.placeholder.com/150'; // Fallback
+    // 🟢 HANDLE IMAGE: Check for File Upload first, then String URL
+    let imagePath = 'https://via.placeholder.com/150'; // Default fallback
+    
     if (req.file) {
-      imagePath = `/uploads/${req.file.filename}`; // Real file
-    } else if (req.body.imageUrl) {
-      imagePath = req.body.imageUrl; // URL string
+      // If Multer processed a file
+      imagePath = `/uploads/${req.file.filename}`; 
+    } else if (req.body.image) {
+      // If a text URL was sent
+      imagePath = req.body.image; 
     }
 
     const product = new Product({
       name,
       price,
       description,
-      imageUrl: imagePath,
+      image: imagePath, // Matches the Schema field 'image'
       category,
-      stockQuantity
+      stockQuantity: stockQuantity || 0,
+      user: req.user._id,
+      numReviews: 0,
+      rating: 0
     });
 
     const createdProduct = await product.save();
     res.status(201).json(createdProduct);
   } catch (error) {
-    console.error(error);
+    console.error("Create Product Error:", error);
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
 
-// @desc    Update a product (Supports File Upload)
+// @desc    Update a product
 // @route   PUT /api/products/:id
+// @access  Private/Admin
 exports.updateProduct = async (req, res) => {
   try {
     const { name, price, description, category, stockQuantity } = req.body;
@@ -68,11 +83,11 @@ exports.updateProduct = async (req, res) => {
       product.category = category || product.category;
       product.stockQuantity = stockQuantity || product.stockQuantity;
 
-      // 🟢 Update Image only if provided
+      // 🟢 Update Image only if a new one is provided
       if (req.file) {
-        product.imageUrl = `/uploads/${req.file.filename}`;
-      } else if (req.body.imageUrl) {
-        product.imageUrl = req.body.imageUrl;
+        product.image = `/uploads/${req.file.filename}`;
+      } else if (req.body.image) {
+        product.image = req.body.image;
       }
 
       const updatedProduct = await product.save();
@@ -81,15 +96,18 @@ exports.updateProduct = async (req, res) => {
       res.status(404).json({ message: 'Product not found' });
     }
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server Error' });
   }
 };
 
 // @desc    Delete a product
 // @route   DELETE /api/products/:id
+// @access  Private/Admin
 exports.deleteProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
+
     if (product) {
       await product.deleteOne(); 
       res.json({ message: 'Product removed' });
@@ -103,6 +121,8 @@ exports.deleteProduct = async (req, res) => {
 };
 
 // @desc    Create new review
+// @route   POST /api/products/:id/reviews
+// @access  Private
 exports.createProductReview = async (req, res) => {
   try {
     const { rating, comment } = req.body;
@@ -112,18 +132,25 @@ exports.createProductReview = async (req, res) => {
       const alreadyReviewed = product.reviews.find(
         (r) => r.user.toString() === req.user._id.toString()
       );
+
       if (alreadyReviewed) {
         return res.status(400).json({ message: 'Product already reviewed' });
       }
+
       const review = {
         name: req.user.firstName,
         rating: Number(rating),
         comment,
         user: req.user._id,
       };
+
       product.reviews.push(review);
+
       product.numReviews = product.reviews.length;
-      product.rating = product.reviews.reduce((acc, item) => item.rating + acc, 0) / product.reviews.length;
+      product.rating =
+        product.reviews.reduce((acc, item) => item.rating + acc, 0) /
+        product.reviews.length;
+
       await product.save();
       res.status(201).json({ message: 'Review added' });
     } else {

@@ -2,33 +2,47 @@ require('dotenv').config(); // Load environment variables
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
+const path = require('path'); // 👈 REQUIRED for images
 
 // Initialize the App
 const app = express();
 
 // --- 1. Middleware ---
-// Allows your frontend (Vue.js) to talk to this backend
 app.use(cors()); 
-// Allows the server to accept JSON data in requests (req.body)
-app.use(express.json()); 
+app.use(express.json()); // Allows JSON data
 
 // --- 2. Database Connection ---
 connectDB();
 
 // --- 3. Routes ---
-// We import the specific route files to keep server.js clean
-app.use('/api/auth', require('./routes/authRoutes'));       // Register, Login, Profile
-app.use('/api/products', require('./routes/productRoutes')); // Browse products
-app.use('/api/orders', require('./routes/orderRoutes'));     // Checkout, Order History
-app.use('/api/payment', require('./routes/paymentRoutes'));
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/products', require('./routes/productRoutes'));
+app.use('/api/orders', require('./routes/orderRoutes'));
+app.use('/api/promotions', require('./routes/promotionRoutes')); // 👈 NEW: Fixes the 404 Error!
 
-// --- 4. Base Route (Health Check) ---
-// Useful to test if the server is alive by visiting http://localhost:5000
+// Note: Ensure you have paymentRoutes.js if you keep this line, otherwise comment it out
+// app.use('/api/payment', require('./routes/paymentRoutes')); 
+
+// --- 4. Static Images (Crucial for Product Uploads) ---
+// This makes the 'uploads' folder public so the frontend can display images
+app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
+
+// --- 5. Base Route (Health Check) ---
 app.get('/', (req, res) => {
   res.send('API is running...');
 });
 
-// --- 5. Start Server ---
+// --- 6. Error Handling (Optional but recommended) ---
+app.use((err, req, res, next) => {
+  const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+  res.status(statusCode);
+  res.json({
+    message: err.message,
+    stack: process.env.NODE_ENV === 'production' ? null : err.stack,
+  });
+});
+
+// --- 7. Start Server ---
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
