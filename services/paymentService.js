@@ -28,9 +28,10 @@ class PaymentService {
                 terminalLabel: "POS-01",
             };
 
+            // 🟢 BULLETPROOF OBJECT: Send the ID in every format
             const individualInfo = {
-                // 🟢 FIX: Renamed 'accountId' to 'bakongAccountId'
-                bakongAccountId: BAKONG_ACCOUNT_ID, 
+                accountId: BAKONG_ACCOUNT_ID,       // Format A
+                bakongAccountId: BAKONG_ACCOUNT_ID, // Format B
                 merchantName: MERCHANT_NAME,
                 merchantCity: MERCHANT_CITY,
                 merchantId: MERCHANT_ID,
