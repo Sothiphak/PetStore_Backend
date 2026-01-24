@@ -4,17 +4,25 @@ const {
   getProducts, 
   getProductById, 
   createProduct, 
+  updateProduct, // 👈 Added
+  deleteProduct, // 👈 Added
   createProductReview 
 } = require('../controllers/productController');
 
 // Import Auth Middleware
-const { protect } = require('../middleware/authMiddleware');
+// 👇 Added 'admin' here
+const { protect, admin } = require('../middleware/authMiddleware');
 
+// Public Routes
 router.get('/', getProducts);
 router.get('/:id', getProductById);
-router.post('/', createProduct);
 
-// 👇 NEW ROUTE (Protected)
+// Protected Admin Routes 🔒
+router.post('/', protect, admin, createProduct);
+router.put('/:id', protect, admin, updateProduct);
+router.delete('/:id', protect, admin, deleteProduct);
+
+// Protected User Route
 router.post('/:id/reviews', protect, createProductReview);
 
 module.exports = router;

@@ -36,7 +36,7 @@ exports.createProduct = async (req, res) => {
       name,
       price,
       description,
-      imageUrl, // Ensure this matches model
+      imageUrl, 
       category,
       stockQuantity
     });
@@ -49,7 +49,52 @@ exports.createProduct = async (req, res) => {
   }
 };
 
-// 👇 NEW FUNCTION: Create Review
+// 👇 NEW: Update a Product
+// @desc    Update a product
+// @route   PUT /api/products/:id
+exports.updateProduct = async (req, res) => {
+  try {
+    const { name, price, description, imageUrl, category, stockQuantity } = req.body;
+
+    const product = await Product.findById(req.params.id);
+
+    if (product) {
+      product.name = name || product.name;
+      product.price = price || product.price;
+      product.description = description || product.description;
+      product.imageUrl = imageUrl || product.imageUrl;
+      product.category = category || product.category;
+      product.stockQuantity = stockQuantity || product.stockQuantity;
+
+      const updatedProduct = await product.save();
+      res.json(updatedProduct);
+    } else {
+      res.status(404).json({ message: 'Product not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// 👇 NEW: Delete a Product
+// @desc    Delete a product
+// @route   DELETE /api/products/:id
+exports.deleteProduct = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (product) {
+      await product.deleteOne(); 
+      res.json({ message: 'Product removed' });
+    } else {
+      res.status(404).json({ message: 'Product not found' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
 // @desc    Create new review
 // @route   POST /api/products/:id/reviews
 exports.createProductReview = async (req, res) => {
@@ -58,7 +103,6 @@ exports.createProductReview = async (req, res) => {
     const product = await Product.findById(req.params.id);
 
     if (product) {
-      // 1. Check if already reviewed
       const alreadyReviewed = product.reviews.find(
         (r) => r.user.toString() === req.user._id.toString()
       );
@@ -67,9 +111,8 @@ exports.createProductReview = async (req, res) => {
         return res.status(400).json({ message: 'Product already reviewed' });
       }
 
-      // 2. Add new review
       const review = {
-        name: req.user.firstName, // Assumes user object has firstName
+        name: req.user.firstName,
         rating: Number(rating),
         comment,
         user: req.user._id,
@@ -77,7 +120,6 @@ exports.createProductReview = async (req, res) => {
 
       product.reviews.push(review);
 
-      // 3. Recalculate Average Rating
       product.numReviews = product.reviews.length;
       product.rating =
         product.reviews.reduce((acc, item) => item.rating + acc, 0) /
