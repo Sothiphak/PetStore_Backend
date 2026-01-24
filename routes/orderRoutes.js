@@ -11,8 +11,8 @@ const { protect, admin } = require('../middleware/authMiddleware');
 
 // 1. Root Route
 router.route('/')
-  .post(protect, addOrderItems)       // Customer creates order
-  .get(protect, admin, getOrders);    // 👈 ADMIN gets all orders (Fixes 404)
+  .post(protect, addOrderItems)      
+  .get(protect, admin, getOrders);    
 
 // 2. My Orders Route
 router.route('/myorders').get(protect, getMyOrders);
