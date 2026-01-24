@@ -26,7 +26,7 @@ exports.addOrderItems = async (req, res) => {
       return res.status(400).json({ message: 'No order items' });
     } 
 
-    // 2. Create the Order Object
+    // 2. Create Order Object
     const order = new Order({
       orderItems,
       user: req.user._id,
@@ -41,7 +41,9 @@ exports.addOrderItems = async (req, res) => {
       status: 'Pending'
     });
 
-    // 🟢 BAKONG LOGIC
+    // 🟢 3. PAYMENT LOGIC SPLIT
+    
+    // CASE A: BAKONG (KHQR)
     if (paymentMethod === 'Bakong') {
         const billNumber = order._id.toString().slice(-10);
         
@@ -65,6 +67,7 @@ exports.addOrderItems = async (req, res) => {
                     paymentMethod
                 });
             } else {
+                // If Bakong fails, don't crash, just return error
                 return res.status(400).json({ 
                     message: "Payment Gateway Error: Could not generate KHQR." 
                 });
@@ -75,52 +78,54 @@ exports.addOrderItems = async (req, res) => {
         }
     }
 
-    // 3. Standard Order Save (COD, Card, etc.)
+    // CASE B: COD or CARD (Standard Save)
     const createdOrder = await order.save();
 
     // 📧 Send Email (Fail silently if email config is wrong)
-    if (paymentMethod !== 'Bakong') {
-        try {
-            await sendEmail({
-                email: req.user.email,
-                subject: 'Order Confirmation - PetStore+',
-                message: `Thank you for your order! Your Order ID is: ${createdOrder._id}`
-            });
-        } catch (e) { 
-            console.log('Email failed to send (continuing order):', e.message); 
-        }
+    try {
+        await sendEmail({
+            email: req.user.email,
+            subject: 'Order Confirmation - PetStore+',
+            message: `Thank you for your order! Your Order ID is: ${createdOrder._id}`
+        });
+    } catch (e) { 
+        console.log('Email failed to send (continuing order):', e.message); 
     }
 
     res.status(201).json(createdOrder);
     
   } catch (error) {
     console.error('Order Create Error:', error);
-    // Return the actual validation error message to the frontend
     res.status(500).json({ message: error.message });
   }
 };
 
-// ... (Keep the rest of your controller functions: checkOrderPayment, getMyOrders, etc.) ...
-exports.checkOrderPayment = async (req, res) => {
-    const order = await Order.findById(req.params.id);
-    if (order) {
-        if (order.isPaid) return res.json({ paid: true });
+// ... (Keep existing checkOrderPayment, getMyOrders, getOrders, etc.) ...
 
-        if (order.paymentMethod === 'Bakong' && order.paymentResult?.id) {
-            const isPaid = await PaymentService.checkTransaction(order.paymentResult.id);
-            if (isPaid) {
-                order.isPaid = true;
-                order.paidAt = Date.now();
-                order.paymentResult.status = 'success';
-                order.status = 'Processing';
-                await order.save();
-                return res.json({ paid: true });
+exports.checkOrderPayment = async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id);
+        if (order) {
+            if (order.isPaid) return res.json({ paid: true });
+
+            if (order.paymentMethod === 'Bakong' && order.paymentResult?.id) {
+                const isPaid = await PaymentService.checkTransaction(order.paymentResult.id);
+                if (isPaid) {
+                    order.isPaid = true;
+                    order.paidAt = Date.now();
+                    order.paymentResult.status = 'success';
+                    order.status = 'Processing';
+                    await order.save();
+                    return res.json({ paid: true });
+                }
             }
+            return res.json({ paid: false });
+        } else {
+            res.status(404).json({ message: 'Order not found' });
         }
-        return res.json({ paid: false });
-    } else {
-        res.status(404);
-        throw new Error('Order not found');
+    } catch (error) {
+        console.error("Check Payment Error:", error);
+        res.status(500).json({ message: error.message });
     }
 };
 
@@ -147,35 +152,36 @@ exports.getOrders = async (req, res) => {
   }
 };
 
-// @desc    Update order status
-// @route   PUT /api/orders/:id/status
-// @access  Private/Admin
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
     const order = await Order.findById(req.params.id);
 
-    if (order) {
-      order.status = status;
-      
-      // If status is 'Delivered', set the time
-      if (status === 'Delivered') {
-        order.isDelivered = true;
-        order.deliveredAt = Date.now();
-        
-        // If it was COD, mark as Paid now too
-        if (order.paymentMethod === 'COD') {
-           order.isPaid = true;
-           order.paidAt = Date.now();
-        }
-      }
-
-      const updatedOrder = await order.save();
-      res.json(updatedOrder);
-    } else {
-      res.status(404).json({ message: 'Order not found' });
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
     }
+
+    let updateData = { status };
+
+    if (status === 'Delivered') {
+      updateData.isDelivered = true;
+      updateData.deliveredAt = Date.now();
+      if (order.paymentMethod === 'COD') {
+         updateData.isPaid = true;
+         updateData.paidAt = Date.now();
+      }
+    }
+
+    const updatedOrder = await Order.findByIdAndUpdate(
+      req.params.id, 
+      updateData, 
+      { new: true } 
+    );
+
+    res.json(updatedOrder);
+
   } catch (error) {
-    res.status(500).json({ message: 'Server Error' });
+    console.error("Update Status Error:", error);
+    res.status(500).json({ message: error.message });
   }
 };
