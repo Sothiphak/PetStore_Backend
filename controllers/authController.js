@@ -233,4 +233,17 @@ exports.resetPassword = async (req, res) => {
     console.error('Reset Password Error:', error);
     res.status(500).json({ message: 'Server Error' });
   }
+
+}
+  // @desc    Get all users (Admin only)
+// @route   GET /api/auth/users
+// @access  Private/Admin
+exports.getUsers = async (req, res) => {
+  try {
+    const users = await User.find({}).select('-password').sort({ createdAt: -1 });
+    res.json(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
 };

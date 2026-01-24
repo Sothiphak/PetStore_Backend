@@ -16,27 +16,32 @@ exports.getProducts = async (req, res) => {
 exports.getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
-    if (product) {
-      res.json(product);
-    } else {
-      res.status(404).json({ message: 'Product not found' });
-    }
+    if (product) res.json(product);
+    else res.status(404).json({ message: 'Product not found' });
   } catch (error) {
     res.status(500).json({ message: 'Server Error' });
   }
 };
 
-// @desc    Create a new product
+// @desc    Create a new product (Supports File Upload)
 // @route   POST /api/products
 exports.createProduct = async (req, res) => {
   try {
-    const { name, price, description, imageUrl, category, stockQuantity } = req.body;
+    const { name, price, description, category, stockQuantity } = req.body;
+    
+    // 🟢 HANDLE IMAGE: File vs String
+    let imagePath = 'https://via.placeholder.com/150'; // Fallback
+    if (req.file) {
+      imagePath = `/uploads/${req.file.filename}`; // Real file
+    } else if (req.body.imageUrl) {
+      imagePath = req.body.imageUrl; // URL string
+    }
 
     const product = new Product({
       name,
       price,
       description,
-      imageUrl, 
+      imageUrl: imagePath,
       category,
       stockQuantity
     });
@@ -49,22 +54,26 @@ exports.createProduct = async (req, res) => {
   }
 };
 
-// 👇 NEW: Update a Product
-// @desc    Update a product
+// @desc    Update a product (Supports File Upload)
 // @route   PUT /api/products/:id
 exports.updateProduct = async (req, res) => {
   try {
-    const { name, price, description, imageUrl, category, stockQuantity } = req.body;
-
+    const { name, price, description, category, stockQuantity } = req.body;
     const product = await Product.findById(req.params.id);
 
     if (product) {
       product.name = name || product.name;
       product.price = price || product.price;
       product.description = description || product.description;
-      product.imageUrl = imageUrl || product.imageUrl;
       product.category = category || product.category;
       product.stockQuantity = stockQuantity || product.stockQuantity;
+
+      // 🟢 Update Image only if provided
+      if (req.file) {
+        product.imageUrl = `/uploads/${req.file.filename}`;
+      } else if (req.body.imageUrl) {
+        product.imageUrl = req.body.imageUrl;
+      }
 
       const updatedProduct = await product.save();
       res.json(updatedProduct);
@@ -76,13 +85,11 @@ exports.updateProduct = async (req, res) => {
   }
 };
 
-// 👇 NEW: Delete a Product
 // @desc    Delete a product
 // @route   DELETE /api/products/:id
 exports.deleteProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
-
     if (product) {
       await product.deleteOne(); 
       res.json({ message: 'Product removed' });
@@ -96,7 +103,6 @@ exports.deleteProduct = async (req, res) => {
 };
 
 // @desc    Create new review
-// @route   POST /api/products/:id/reviews
 exports.createProductReview = async (req, res) => {
   try {
     const { rating, comment } = req.body;
@@ -106,25 +112,18 @@ exports.createProductReview = async (req, res) => {
       const alreadyReviewed = product.reviews.find(
         (r) => r.user.toString() === req.user._id.toString()
       );
-
       if (alreadyReviewed) {
         return res.status(400).json({ message: 'Product already reviewed' });
       }
-
       const review = {
         name: req.user.firstName,
         rating: Number(rating),
         comment,
         user: req.user._id,
       };
-
       product.reviews.push(review);
-
       product.numReviews = product.reviews.length;
-      product.rating =
-        product.reviews.reduce((acc, item) => item.rating + acc, 0) /
-        product.reviews.length;
-
+      product.rating = product.reviews.reduce((acc, item) => item.rating + acc, 0) / product.reviews.length;
       await product.save();
       res.status(201).json({ message: 'Review added' });
     } else {
