@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto'); 
 const sendEmail = require('../utils/sendEmail'); 
+
 // Helper: Generate JWT Token
 const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, {
@@ -17,8 +18,9 @@ exports.register = async (req, res) => {
   try {
     const { firstName, lastName, email, password } = req.body;
 
-    if (!firstName || !lastName || !email || !password) {
-      return res.status(400).json({ message: 'Please fill in all fields' });
+    // ✅ UPDATED: Only check for Email and Password
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Please provide email and password' });
     }
 
     const userExists = await User.findOne({ email });
@@ -29,9 +31,10 @@ exports.register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // ✅ UPDATED: Use Default Names if none provided
     const user = await User.create({
-      firstName,
-      lastName,
+      firstName: firstName || 'Pet',   // Default to "Pet"
+      lastName: lastName || 'Lover',   // Default to "Lover"
       email,
       password: hashedPassword,
     });
@@ -81,8 +84,6 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: 'Server Error' });
   }
 };
-
-// 👇👇👇 NEW FUNCTION ADDED HERE 👇👇👇
 
 // @desc    Get User Profile
 // @route   GET /api/auth/profile
@@ -199,7 +200,7 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
-// 👇 ADD THIS: Reset Password Logic
+// Reset Password Logic
 exports.resetPassword = async (req, res) => {
   try {
     // Hash the token from the URL to compare with the DB
