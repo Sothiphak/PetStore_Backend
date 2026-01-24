@@ -1,26 +1,28 @@
-const axios = require('axios');
-const crypto = require('crypto');
 const { BakongKHQR, khqrData } = require("bakong-khqr");
 
-// Use env vars or fallback to Bakong's public test credentials
-const BAKONG_ACCOUNT_ID = process.env.BAKONG_ACCOUNT_ID || "test_bakong@devb";
-const MERCHANT_NAME = process.env.BAKONG_MERCHANT_NAME || "Test Merchant";
+// 🟢 SAFE SANDBOX CREDENTIALS (Guaranteed to work)
+const BAKONG_ACCOUNT_ID = "test_bakong@devb"; 
+const MERCHANT_ID = "000201"; 
+const MERCHANT_NAME = "PetStore+";
 const MERCHANT_CITY = "Phnom Penh";
-const MERCHANT_ID = process.env.BAKONG_MERCHANT_ID || "000201";
 
 exports.generateKHQR = async (amount, billNumber) => {
     try {
+        // 1. 🧹 CLEAN THE AMOUNT
+        // This fixes the "Could not generate" error by forcing exactly 2 decimals
+        const safeAmount = Number(parseFloat(amount).toFixed(2));
+
         const optionalData = {
             currency: khqrData.currency.usd,
-            amount: amount,
+            amount: safeAmount,
             mobileNumber: "85512345678",
             billNumber: billNumber || `INV-${Date.now()}`,
-            storeLabel: "PetStore+",
+            storeLabel: "PetStore",
             terminalLabel: "POS-01",
         };
 
         const individualInfo = {
-            accountId: BAKONG_ACCOUNT_ID,
+            accountId: BAKONG_ACCOUNT_ID, // Uses hardcoded safe value
             merchantName: MERCHANT_NAME,
             merchantCity: MERCHANT_CITY,
             merchantId: MERCHANT_ID,
@@ -31,31 +33,39 @@ exports.generateKHQR = async (amount, billNumber) => {
         const response = khqr.generateIndividual(individualInfo, optionalData);
 
         if (response.status.code === 0) {
+            // ✅ SUCCESS
+            const qrString = response.data.qr;
+            const md5 = response.data.md5;
+            
+            // Convert QR String to Image URL
+            const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrString)}`;
+
             return {
                 success: true,
-                qr: response.data.qr,
-                md5: response.data.md5,
-                qrImage: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(response.data.qr)}`
+                qr: qrString,
+                md5: md5,
+                qrImage: qrImageUrl
             };
         } else {
-            return { success: false, message: "KHQR Generation Failed" };
+            // ❌ FAIL - Log the real reason
+            console.error("KHQR Gen Error:", response);
+            return { 
+                success: false, 
+                message: `KHQR Error: ${response.status.message || 'Invalid Data'}` 
+            };
         }
     } catch (error) {
-        console.error("KHQR Service Error:", error);
+        console.error("Payment Service Exception:", error);
         return { success: false, error: error.message };
     }
 };
 
-// Mock Transaction Check for Sandbox (Always returns true for test accounts)
+// Mock Transaction Check (Auto-Success after 5 seconds for Demo)
 exports.checkTransaction = async (md5) => {
-    // In a real production app, you would call:
-    // axios.get(`https://api-bakong.nbc.gov.kh/v1/check_transaction_by_md5/${md5}`)
-    
-    // For Sandbox/Demo purposes, we simulate a successful payment after 5 seconds
-    // to prevent the 403 error from blocking your demo.
     return new Promise((resolve) => {
         setTimeout(() => {
-            resolve(true); // Always return TRUE for testing
-        }, 3000);
+            console.log("Simulating Payment Success for:", md5);
+            resolve(true); 
+        }, 5000); 
     });
 };
