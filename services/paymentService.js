@@ -18,11 +18,13 @@ class PaymentService {
             }
 
             console.log(`Generating QR for $${safeAmount} with Account: ${BAKONG_ACCOUNT_ID}`);
+            
+            // 🟢 DEBUG: Log what khqrData.currency actually contains
+            console.log("Available currency types:", khqrData.currency);
 
-            // 🟢 FIX: Properly access currency constant
-            // The library expects either khqrData.currency.khr (116) or khqrData.currency.usd (840)
+            // 🟢 FIX: Use explicit numeric currency codes
             const optionalData = {
-                currency: khqrData.currency.usd,  // Remove the || "USD" fallback
+                currency: 840,  // ISO 4217: 840 = USD, 116 = KHR
                 amount: safeAmount,
                 mobileNumber: "85512345678",
                 billNumber: billNumber || `INV-${Date.now()}`,
@@ -32,15 +34,20 @@ class PaymentService {
 
             const individualInfo = {
                 bakongAccountID: BAKONG_ACCOUNT_ID,
-                accountId: BAKONG_ACCOUNT_ID,       
                 merchantName: MERCHANT_NAME,
                 merchantCity: MERCHANT_CITY,
                 merchantId: MERCHANT_ID,
                 acquiringBank: "Bakong Bank", 
             };
 
+            // 🟢 DEBUG: Log what we're sending
+            console.log("Optional Data:", JSON.stringify(optionalData, null, 2));
+            console.log("Individual Info:", JSON.stringify(individualInfo, null, 2));
+
             const khqr = new BakongKHQR();
             const response = khqr.generateIndividual(individualInfo, optionalData);
+
+            console.log("KHQR Response:", JSON.stringify(response, null, 2));
 
             if (response.status.code === 0) {
                 const qrString = response.data.qr;
