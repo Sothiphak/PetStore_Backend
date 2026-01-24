@@ -5,32 +5,25 @@ const PromotionSchema = new mongoose.Schema({
     type: String, 
     required: true, 
     unique: true,
-    uppercase: true, // Forces 'SUMMER10' instead of 'summer10'
-    trim: true
+    uppercase: true, 
+    trim: true 
   },
-  discountPercentage: { 
+  type: {
+    type: String,
+    enum: ['percent', 'fixed', 'shipping'], // Supports 10% off, $5 off, or Free Shipping
+    required: true,
+    default: 'percent'
+  },
+  value: { 
     type: Number, 
     required: true,
-    min: 0,
-    max: 100
+    min: 0
   },
-  startDate: { 
-    type: Date, 
-    required: true 
-  },
-  endDate: { 
-    type: Date, 
-    required: true 
-  },
-  isActive: { 
-    type: Boolean, 
-    default: true 
-  },
-  // Analytics: Tracks how many times this code was used
-  usageCount: { 
-    type: Number, 
-    default: 0 
-  }
+  startDate: { type: Date, required: true },
+  endDate: { type: Date, required: true },
+  isActive: { type: Boolean, default: true },
+  usageLimit: { type: Number, default: 0 }, // 0 = Unlimited
+  usageCount: { type: Number, default: 0 }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Promotion', PromotionSchema);
