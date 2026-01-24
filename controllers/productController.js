@@ -38,21 +38,21 @@ exports.createProduct = async (req, res) => {
     const { name, price, description, category, stockQuantity } = req.body;
     
     // 🟢 HANDLE IMAGE: Check for File Upload first, then String URL
-    let imagePath = 'https://via.placeholder.com/150'; // Default fallback
+    let finalPath = 'https://via.placeholder.com/150'; // Default fallback
     
     if (req.file) {
       // If Multer processed a file
-      imagePath = `/uploads/${req.file.filename}`; 
-    } else if (req.body.image) {
-      // If a text URL was sent
-      imagePath = req.body.image; 
+      finalPath = `/uploads/${req.file.filename}`; 
+    } else if (req.body.imageUrl) {
+      // If a text URL was sent (Note: Frontend sends 'image', but we map to imageUrl)
+      finalPath = req.body.imageUrl; 
     }
 
     const product = new Product({
       name,
       price,
       description,
-      image: imagePath, // Matches the Schema field 'image'
+      imageUrl: finalPath, // 👈 FIXED: Matches your DB Schema 'imageUrl'
       category,
       stockQuantity: stockQuantity || 0,
       user: req.user._id,
@@ -85,9 +85,9 @@ exports.updateProduct = async (req, res) => {
 
       // 🟢 Update Image only if a new one is provided
       if (req.file) {
-        product.image = `/uploads/${req.file.filename}`;
-      } else if (req.body.image) {
-        product.image = req.body.image;
+        product.imageUrl = `/uploads/${req.file.filename}`; // 👈 FIXED
+      } else if (req.body.imageUrl) {
+        product.imageUrl = req.body.imageUrl;
       }
 
       const updatedProduct = await product.save();
