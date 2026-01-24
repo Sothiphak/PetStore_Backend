@@ -1,4 +1,3 @@
-// server/models/Order.js
 const mongoose = require('mongoose');
 
 const OrderSchema = new mongoose.Schema({
@@ -23,17 +22,19 @@ const OrderSchema = new mongoose.Schema({
   ],
 
   shippingAddress: {
+    firstName: { type: String, required: true }, // 👈 Added
+    lastName: { type: String, required: true },  // 👈 Added
     address: { type: String, required: true },
     city: { type: String, required: true },
     postalCode: { type: String, required: true },
-    country: { type: String, required: true }
+    country: { type: String, required: true },
+    phone: { type: String, required: true }      // 👈 Added
   },
 
   paymentMethod: { type: String, required: true },
   
-  // 👇 Updated Payment Result for Bakong MD5 Support
   paymentResult: {
-    id: { type: String }, // Stores MD5 hash for Bakong
+    id: { type: String },
     status: { type: String },
     update_time: { type: String },
     email_address: { type: String },

@@ -1,4 +1,3 @@
-// server/controllers/orderController.js
 const Order = require('../models/Order');
 const Product = require('../models/Product'); 
 const sendEmail = require('../utils/sendEmail'); 
@@ -6,6 +5,11 @@ const PaymentService = require('../services/paymentService');
 
 exports.addOrderItems = async (req, res) => {
   try {
+    // 1. Security Check
+    if (!req.user) {
+      return res.status(401).json({ message: 'User not authorized. Please login.' });
+    }
+
     const { 
       orderItems, 
       shippingAddress, 
@@ -22,7 +26,7 @@ exports.addOrderItems = async (req, res) => {
       return res.status(400).json({ message: 'No order items' });
     } 
 
-    // 1. Create the Order Object (Do not save yet)
+    // 2. Create the Order Object
     const order = new Order({
       orderItems,
       user: req.user._id,
@@ -40,56 +44,63 @@ exports.addOrderItems = async (req, res) => {
     // 🟢 BAKONG LOGIC
     if (paymentMethod === 'Bakong') {
         const billNumber = order._id.toString().slice(-10);
-        const qrResult = await PaymentService.generateKHQR(totalPrice, billNumber);
         
-        if (qrResult.success) {
-            order.paymentResult = {
-                id: qrResult.md5,
-                status: 'pending',
-                email_address: req.user.email
-            };
+        try {
+            const qrResult = await PaymentService.generateKHQR(totalPrice, billNumber);
             
-            await order.save(); // Save only if QR gen worked
-            
-            return res.status(201).json({
-                _id: order._id,
-                qrImage: qrResult.qrImage,
-                isBakong: true,
-                totalPrice,
-                paymentMethod
-            });
-        } else {
-            // 🛑 CRITICAL FIX: If QR Gen fails, STOP the order!
-            console.error("KHQR Generation Failed. Check Merchant Credentials.");
-            return res.status(400).json({ 
-                message: "Payment Gateway Error: Could not generate KHQR. Please check merchant credentials or try COD." 
-            });
+            if (qrResult.success) {
+                order.paymentResult = {
+                    id: qrResult.md5,
+                    status: 'pending',
+                    email_address: req.user.email
+                };
+                
+                await order.save();
+                
+                return res.status(201).json({
+                    _id: order._id,
+                    qrImage: qrResult.qrImage,
+                    isBakong: true,
+                    totalPrice,
+                    paymentMethod
+                });
+            } else {
+                return res.status(400).json({ 
+                    message: "Payment Gateway Error: Could not generate KHQR." 
+                });
+            }
+        } catch (err) {
+            console.error("Bakong Service Error:", err);
+            return res.status(500).json({ message: "Bakong Service Unavailable" });
         }
     }
 
-    // 2. Standard Order Save (COD, Card, etc.)
+    // 3. Standard Order Save (COD, Card, etc.)
     const createdOrder = await order.save();
 
-    // 📧 Send Email for standard orders
+    // 📧 Send Email (Fail silently if email config is wrong)
     if (paymentMethod !== 'Bakong') {
         try {
             await sendEmail({
                 email: req.user.email,
                 subject: 'Order Confirmation - PetStore+',
-                message: `Order received! ID: ${createdOrder._id}`
+                message: `Thank you for your order! Your Order ID is: ${createdOrder._id}`
             });
-        } catch (e) { console.error('Email failed', e.message); }
+        } catch (e) { 
+            console.log('Email failed to send (continuing order):', e.message); 
+        }
     }
 
     res.status(201).json(createdOrder);
     
   } catch (error) {
     console.error('Order Create Error:', error);
-    res.status(500).json({ message: 'Server Error: ' + error.message });
+    // Return the actual validation error message to the frontend
+    res.status(500).json({ message: error.message });
   }
 };
 
-// ... keep checkOrderPayment, getMyOrders, getOrderById as they were ...
+// ... (Keep the rest of your controller functions: checkOrderPayment, getMyOrders, etc.) ...
 exports.checkOrderPayment = async (req, res) => {
     const order = await Order.findById(req.params.id);
     if (order) {
@@ -124,14 +135,11 @@ exports.getOrderById = async (req, res) => {
     else res.status(404).json({message: 'Order not found'});
 };
 
-// @desc    Get all orders (Admin)
-// @route   GET /api/orders
-// @access  Private/Admin
 exports.getOrders = async (req, res) => {
   try {
     const orders = await Order.find({})
-      .populate('user', 'id firstName lastName email') // Get customer details
-      .sort({ createdAt: -1 }); // Newest first
+      .populate('user', 'id firstName lastName email')
+      .sort({ createdAt: -1 });
     res.json(orders);
   } catch (error) {
     console.error(error);
