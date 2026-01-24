@@ -20,8 +20,7 @@ class PaymentService {
             console.log(`Generating QR for $${safeAmount} with Account: ${BAKONG_ACCOUNT_ID}`);
 
             const optionalData = {
-                // Ensure this resolves to a valid string, usually 'USD' or 'KHR'
-                currency: khqrData.currency.usd || "USD",
+                currency: 840,  // 840 = USD, 116 = KHR (ISO 4217 numeric codes)
                 amount: safeAmount,
                 mobileNumber: "85512345678",
                 billNumber: billNumber || `INV-${Date.now()}`,
