@@ -19,8 +19,10 @@ class PaymentService {
 
             console.log(`Generating QR for $${safeAmount} with Account: ${BAKONG_ACCOUNT_ID}`);
 
+            // 🟢 FIX: Properly access currency constant
+            // The library expects either khqrData.currency.khr (116) or khqrData.currency.usd (840)
             const optionalData = {
-                currency: 840,  // 840 = USD, 116 = KHR (ISO 4217 numeric codes)
+                currency: khqrData.currency.usd,  // Remove the || "USD" fallback
                 amount: safeAmount,
                 mobileNumber: "85512345678",
                 billNumber: billNumber || `INV-${Date.now()}`,
@@ -29,7 +31,7 @@ class PaymentService {
             };
 
             const individualInfo = {
-                bakongAccountID: BAKONG_ACCOUNT_ID, // <--- ADD THIS LINE (Capital "ID")
+                bakongAccountID: BAKONG_ACCOUNT_ID,
                 accountId: BAKONG_ACCOUNT_ID,       
                 merchantName: MERCHANT_NAME,
                 merchantCity: MERCHANT_CITY,
