@@ -1,7 +1,7 @@
 const { BakongKHQR, khqrData } = require("bakong-khqr");
 const axios = require('axios');
 
-// 🟢 SAFE SANDBOX CREDENTIALS (GUARANTEED TO WORK)
+// 🟢 OFFICIAL SANDBOX CREDENTIALS (Must use these for Demo)
 const BAKONG_ACCOUNT_ID = "test_bakong@devb"; 
 const MERCHANT_ID = "000201"; 
 const MERCHANT_NAME = "PetStore+";
@@ -28,6 +28,7 @@ class PaymentService {
                 terminalLabel: "POS-01",
             };
 
+            // 🟢 Use Individual Info (Required for Sandbox 'test_bakong@devb')
             const individualInfo = {
                 accountId: BAKONG_ACCOUNT_ID,
                 merchantName: MERCHANT_NAME,
@@ -43,7 +44,7 @@ class PaymentService {
                 const qrString = response.data.qr;
                 const md5 = response.data.md5;
                 
-                // 🟢 Generate QR Image using Public API (More reliable for demos)
+                // Generate QR Image URL using Public API
                 const qrImage = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrString)}`;
 
                 return {

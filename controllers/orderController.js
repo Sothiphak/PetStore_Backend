@@ -5,7 +5,6 @@ const PaymentService = require('../services/paymentService');
 
 exports.addOrderItems = async (req, res) => {
   try {
-    // 1. Security Check
     if (!req.user) {
       return res.status(401).json({ message: 'User not authorized. Please login.' });
     }
@@ -26,7 +25,6 @@ exports.addOrderItems = async (req, res) => {
       return res.status(400).json({ message: 'No order items' });
     } 
 
-    // 2. Create the Order Object
     const order = new Order({
       orderItems,
       user: req.user._id,
@@ -65,7 +63,6 @@ exports.addOrderItems = async (req, res) => {
                     paymentMethod
                 });
             } else {
-                // Return the REAL error message from the service
                 return res.status(400).json({ 
                     message: qrResult.message || "Payment Gateway Error: Could not generate KHQR." 
                 });
@@ -79,7 +76,7 @@ exports.addOrderItems = async (req, res) => {
     // 3. Standard Order Save (COD, Card, etc.)
     const createdOrder = await order.save();
 
-    // 📧 Send Email (Fail silently)
+    // 📧 Send Email
     if (paymentMethod !== 'Bakong') {
         try {
             await sendEmail({
@@ -88,7 +85,7 @@ exports.addOrderItems = async (req, res) => {
                 message: `Thank you for your order! Your Order ID is: ${createdOrder._id}`
             });
         } catch (e) { 
-            console.log('Email failed to send (continuing order):', e.message); 
+            console.log('Email failed to send:', e.message); 
         }
     }
 
@@ -100,10 +97,7 @@ exports.addOrderItems = async (req, res) => {
   }
 };
 
-// ... (KEEP ALL OTHER FUNCTIONS BELOW: checkOrderPayment, getMyOrders, etc.) ...
-// Make sure you keep getMyOrders, getOrderById, getOrders, and updateOrderStatus
-// EXACTLY as they were. I am only showing addOrderItems above because that is where the bug was.
-
+// ... (KEEP ALL OTHER FUNCTIONS BELOW: checkOrderPayment, getMyOrders, getOrderById, getOrders, updateOrderStatus) ...
 exports.checkOrderPayment = async (req, res) => {
     const order = await Order.findById(req.params.id);
     if (order) {
