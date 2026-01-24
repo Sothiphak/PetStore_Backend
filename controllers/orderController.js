@@ -26,7 +26,7 @@ exports.addOrderItems = async (req, res) => {
       return res.status(400).json({ message: 'No order items' });
     } 
 
-    // 2. Create Order Object
+    // 2. Create the Order Object (Do not save yet)
     const order = new Order({
       orderItems,
       user: req.user._id,
@@ -41,9 +41,7 @@ exports.addOrderItems = async (req, res) => {
       status: 'Pending'
     });
 
-    // 🟢 3. PAYMENT LOGIC SPLIT
-    
-    // CASE A: BAKONG (KHQR)
+    // 🟢 3. IF BAKONG -> EXECUTE SPECIAL LOGIC
     if (paymentMethod === 'Bakong') {
         const billNumber = order._id.toString().slice(-10);
         
@@ -67,7 +65,7 @@ exports.addOrderItems = async (req, res) => {
                     paymentMethod
                 });
             } else {
-                // If Bakong fails, don't crash, just return error
+                // Return error specifically for Bakong failure
                 return res.status(400).json({ 
                     message: "Payment Gateway Error: Could not generate KHQR." 
                 });
@@ -78,10 +76,10 @@ exports.addOrderItems = async (req, res) => {
         }
     }
 
-    // CASE B: COD or CARD (Standard Save)
+    // 🟢 4. IF COD OR CARD -> JUST SAVE (SIMPLE & SAFE)
     const createdOrder = await order.save();
 
-    // 📧 Send Email (Fail silently if email config is wrong)
+    // 📧 Send Email (Fail silently so order doesn't crash)
     try {
         await sendEmail({
             email: req.user.email,
@@ -100,7 +98,7 @@ exports.addOrderItems = async (req, res) => {
   }
 };
 
-// ... (Keep existing checkOrderPayment, getMyOrders, getOrders, etc.) ...
+// ... (Keep existing checkOrderPayment, getMyOrders, etc.) ...
 
 exports.checkOrderPayment = async (req, res) => {
     try {
