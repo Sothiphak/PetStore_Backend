@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path');
+const path = require('path'); // 👈 We need this
 const { 
   getProducts, 
   getProductById, 
@@ -12,10 +12,11 @@ const {
 } = require('../controllers/productController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
-// 🟢 IMAGE UPLOAD CONFIGURATION
+// 🟢 IMAGE UPLOAD CONFIGURATION (THE FIX)
 const storage = multer.diskStorage({
   destination(req, file, cb) {
-    // 👇 KEY FIX: Go up one level (..) from 'routes' to find 'uploads' in root
+    // 👇 THIS LINE IS CRITICAL
+    // It says: "Start at this file ('routes'), go up one level ('..'), then into 'uploads'"
     cb(null, path.join(__dirname, '../uploads')); 
   },
   filename(req, file, cb) {
@@ -38,7 +39,7 @@ const upload = multer({
 router.get('/', getProducts);
 router.get('/:id', getProductById);
 
-// Protected Routes
+// 🟢 Protected Routes with File Upload
 router.post('/', protect, admin, upload.single('image'), createProduct);
 router.put('/:id', protect, admin, upload.single('image'), updateProduct);
 router.delete('/:id', protect, admin, deleteProduct);

@@ -2,7 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
-const path = require('path'); // Required for file paths
+const path = require('path');
+const fs = require('fs'); // 👈 REQUIRED: Import File System
 
 // Initialize App
 const app = express();
@@ -14,15 +15,22 @@ app.use(express.json());
 // Database
 connectDB();
 
-// 🟢 ROUTES (Connecting to the 'routes' folder)
+// 🟢 AUTO-CREATE UPLOADS FOLDER (The Fix)
+// This checks if 'uploads' exists. If not, it creates it.
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)){
+    fs.mkdirSync(uploadsDir);
+    console.log('📂 Created uploads folder automatically');
+}
+
+// 🟢 ROUTES
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/products', require('./routes/productRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
-app.use('/api/promotions', require('./routes/promotionRoutes')); // Fixes 404
+app.use('/api/promotions', require('./routes/promotionRoutes'));
 
-// 🟢 STATIC FOLDER (Allows frontend to see uploaded images)
-// Since server.js is in the root, 'uploads' is just 'uploads'
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// 🟢 STATIC IMAGES
+app.use('/uploads', express.static(uploadsDir));
 
 // Health Check
 app.get('/', (req, res) => {
