@@ -123,3 +123,18 @@ exports.getOrderById = async (req, res) => {
     if(order) res.json(order);
     else res.status(404).json({message: 'Order not found'});
 };
+
+// @desc    Get all orders (Admin)
+// @route   GET /api/orders
+// @access  Private/Admin
+exports.getOrders = async (req, res) => {
+  try {
+    const orders = await Order.find({})
+      .populate('user', 'id firstName lastName email') // Get customer details
+      .sort({ createdAt: -1 }); // Newest first
+    res.json(orders);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
