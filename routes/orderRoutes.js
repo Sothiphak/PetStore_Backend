@@ -5,7 +5,7 @@ const {
   getMyOrders, 
   getOrderById, 
   checkOrderPayment,
-  getOrders // 👈 Import the new function
+  getOrders 
 } = require('../controllers/orderController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
