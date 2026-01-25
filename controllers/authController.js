@@ -126,9 +126,21 @@ exports.updateProfile = async (req, res) => {
       user.phone = req.body.phone || user.phone;
       user.address = req.body.address || user.address;
       
-      if (req.body.password) {
+      // 🔐 Password Change Logic (Secure)
+      if (req.body.newPassword) {
+        // Verify current password first
+        if (!req.body.currentPassword) {
+          return res.status(400).json({ message: 'Current password is required' });
+        }
+        
+        const isMatch = await bcrypt.compare(req.body.currentPassword, user.password);
+        if (!isMatch) {
+          return res.status(400).json({ message: 'Current password is incorrect' });
+        }
+        
+        // Hash and save new password
         const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(req.body.password, salt);
+        user.password = await bcrypt.hash(req.body.newPassword, salt);
       }
 
       const updatedUser = await user.save();

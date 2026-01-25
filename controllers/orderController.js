@@ -127,9 +127,20 @@ exports.getMyOrders = async (req, res) => {
 };
 
 exports.getOrderById = async (req, res) => {
-    const order = await Order.findById(req.params.id).populate('user', 'firstName lastName email');
-    if(order) res.json(order);
-    else res.status(404).json({message: 'Order not found'});
+  try {
+    const order = await Order.findById(req.params.id)
+      .populate('user', 'firstName lastName email phone')  
+      .populate('orderItems.product', 'name price image'); 
+    
+    if (order) {
+      res.json(order);
+    } else {
+      res.status(404).json({ message: 'Order not found' });
+    }
+  } catch (error) {
+    console.error('Get Order Error:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
 };
 
 exports.getOrders = async (req, res) => {
