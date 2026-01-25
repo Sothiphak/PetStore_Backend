@@ -18,8 +18,9 @@ app.use(cors({
     const allowedOrigins = [
       'http://localhost:5173',
       'http://localhost:5174',
-      // 👇 ADD YOUR PRODUCTION FRONTEND URL HERE LATER
-      // e.g., 'https://petstore-project.onrender.com'
+      'https://petstore-project.onrender.com', // Previous Render URL
+      'https://pet-store-project-two.vercel.app', // ✅ New Vercel Deployment
+      'https://pet-store-project-two.vercel.app/', // ✅ Trailing slash variant
     ];
 
     // ✅ ALLOW Health Checks & Mobile Apps (Requests with no origin)

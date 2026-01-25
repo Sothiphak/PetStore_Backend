@@ -209,8 +209,9 @@ exports.forgotPassword = async (req, res) => {
     await user.save({ validateBeforeSave: false });
 
     // Create the reset URL (Point to your Frontend)
-    // Ensure CLIENT_URL is in your .env (e.g., http://localhost:5173)
-    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+    // Ensure CLIENT_URL is in your .env or fallback to Vercel
+    const clientUrl = process.env.CLIENT_URL || 'https://pet-store-project-two.vercel.app';
+    const resetUrl = `${clientUrl}/reset-password?token=${resetToken}`;
 
     const message = `
       <h1>Password Reset Request</h1>
