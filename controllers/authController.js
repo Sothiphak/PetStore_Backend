@@ -5,6 +5,23 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto'); 
 const sendEmail = require('../utils/sendEmail'); 
 
+// 🛡️ VALIDATION HELPERS
+const validatePassword = (password) => {
+  if (!password) return 'Password is required';
+  if (password.length < 8) return 'Password must be at least 8 characters';
+  if (password.length > 128) return 'Password must be less than 128 characters';
+  if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter';
+  if (!/[a-z]/.test(password)) return 'Password must contain at least one lowercase letter';
+  if (!/[0-9]/.test(password)) return 'Password must contain at least one number';
+  return null; // No error
+};
+
+const validateEmail = (email) => {
+  if (!email) return false;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
 // Helper: Generate JWT Token
 const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, {
@@ -18,9 +35,15 @@ exports.register = async (req, res) => {
   try {
     const { firstName, lastName, email, password } = req.body;
 
-    // ✅ UPDATED: Only check for Email and Password
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Please provide email and password' });
+    // 🛡️ Validate email format
+    if (!validateEmail(email)) {
+      return res.status(400).json({ message: 'Please provide a valid email address' });
+    }
+
+    // 🛡️ Validate password strength
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
     }
 
     const userExists = await User.findOne({ email });
@@ -137,6 +160,12 @@ exports.updateProfile = async (req, res) => {
         if (!isMatch) {
           return res.status(400).json({ message: 'Current password is incorrect' });
         }
+
+        // 🛡️ Validate new password strength
+        const passwordError = validatePassword(req.body.newPassword);
+        if (passwordError) {
+          return res.status(400).json({ message: passwordError });
+        }
         
         // Hash and save new password
         const salt = await bcrypt.genSalt(10);
@@ -228,6 +257,12 @@ exports.resetPassword = async (req, res) => {
 
     if (!user) {
       return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+
+    // 🛡️ Validate new password strength
+    const passwordError = validatePassword(req.body.newPassword);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
     }
 
     // Set new password

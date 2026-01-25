@@ -4,7 +4,6 @@ const cors = require('cors');
 const helmet = require('helmet'); // 🛡️ Security Headers
 const rateLimit = require('express-rate-limit'); // 🛡️ Brute Force Protection
 const mongoSanitize = require('express-mongo-sanitize'); // 🛡️ NoSQL Injection Prevention
-// ❌ REMOVED xss-clean (It causes the "Cannot set property query" crash on Render)
 const connectDB = require('./config/db');
 
 // Initialize App
@@ -41,15 +40,15 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// 3. 🛡️ Rate Limiting - DISABLED (uncomment to re-enable)
-// const limiter = rateLimit({
-//   windowMs: 15 * 60 * 1000, 
-//   max: process.env.NODE_ENV === 'production' ? 100 : 1000,
-//   standardHeaders: true, 
-//   legacyHeaders: false,
-//   message: { message: 'Too many requests from this IP, please try again after 15 minutes' }
-// });
-// app.use('/api', limiter);
+// 3. 🛡️ Rate Limiting (10000 requests per 15 minutes)
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, 
+  max: 10000,
+  standardHeaders: true, 
+  legacyHeaders: false,
+  message: { message: 'Too many requests from this IP, please try again after 15 minutes' }
+});
+app.use('/api', limiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10kb' })); // 🛡️ Limit body size to prevent DoS
