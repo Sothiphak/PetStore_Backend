@@ -13,25 +13,25 @@ const app = express();
 // 1. 🛡️ Set Security Headers (First middleware)
 app.use(helmet());
 
-// 2. 🛡️ Strict CORS Configuration
+// 2. 🛡️ CORS Configuration (Updated for Render Deployment)
 app.use(cors({
   origin: function(origin, callback) {
     const allowedOrigins = [
-      'http://localhost:5173', // Vite Frontend
-      'http://localhost:5174', // Backup Port
-      // Add your production frontend URL here later, e.g., 'https://mypetstore.vercel.app'
+      'http://localhost:5173',
+      'http://localhost:5174',
+      // 👇 ADD YOUR PRODUCTION FRONTEND URL HERE
+      // e.g., 'https://petstore-project.onrender.com'
     ];
-    
-    // Allow requests with no origin (like mobile apps or curl) ONLY in development
-    if (!origin && process.env.NODE_ENV === 'development') {
-      return callback(null, true);
-    }
+
+    if (!origin) return callback(null, true);
     
     if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS')); // ⛔ Block unauthorized origins
-    }
+      return callback(null, true);
+    } 
+
+    console.log("⚠️ Potential CORS Block (Allowed for now):", origin);
+    return callback(null, true); 
+
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
