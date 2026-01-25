@@ -4,7 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet'); // 🛡️ Security Headers
 const rateLimit = require('express-rate-limit'); // 🛡️ Brute Force Protection
 const mongoSanitize = require('express-mongo-sanitize'); // 🛡️ NoSQL Injection Prevention
-const xss = require('xss-clean'); // 🛡️ XSS Prevention
+// ❌ REMOVED xss-clean (It causes the "Cannot set property query" crash on Render)
 const connectDB = require('./config/db');
 
 // Initialize App
@@ -13,25 +13,28 @@ const app = express();
 // 1. 🛡️ Set Security Headers (First middleware)
 app.use(helmet());
 
-// 2. 🛡️ CORS Configuration (Updated for Render Deployment)
+// 2. 🛡️ CORS Configuration (Fixed for Render Deployment)
 app.use(cors({
   origin: function(origin, callback) {
     const allowedOrigins = [
       'http://localhost:5173',
       'http://localhost:5174',
-      // 👇 ADD YOUR PRODUCTION FRONTEND URL HERE
+      // 👇 ADD YOUR PRODUCTION FRONTEND URL HERE LATER
       // e.g., 'https://petstore-project.onrender.com'
     ];
 
+    // ✅ ALLOW Health Checks & Mobile Apps (Requests with no origin)
+    // This fixes the "Timed Out" error on Render deployment
     if (!origin) return callback(null, true);
     
     if (allowedOrigins.indexOf(origin) !== -1) {
       return callback(null, true);
     } 
 
+    // ⚠️ TEMPORARY: Log & Allow others for testing
+    // This prevents blocking your frontend while you are setting up the URL
     console.log("⚠️ Potential CORS Block (Allowed for now):", origin);
     return callback(null, true); 
-
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -54,7 +57,6 @@ app.use(express.urlencoded({ extended: true }));
 
 // 4. 🛡️ Data Sanitization
 app.use(mongoSanitize()); // Prevent NoSQL Injection (e.g. {"$gt": ""})
-app.use(xss()); // Prevent XSS attacks
 
 // Request logging
 app.use((req, res, next) => {
@@ -65,7 +67,7 @@ app.use((req, res, next) => {
 // Database
 connectDB();
 
-// 🟢 HEALTH CHECK ENDPOINT
+// 🟢 HEALTH CHECK ENDPOINT (Critical for Render!)
 app.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'ok', 
@@ -84,7 +86,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/products', require('./routes/productRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/promotions', require('./routes/promotionRoutes'));
-app.use('/api/payment', require('./routes/paymentRoutes')); // Ensure this matches your file name
+app.use('/api/payment', require('./routes/paymentRoutes'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -100,7 +102,7 @@ app.use((req, res) => {
   res.status(404).json({ message: `Route not found: ${req.method} ${req.path}` });
 });
 
-// Start Server
+// Start Server - CRITICAL: Bind to 0.0.0.0 for Render
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
