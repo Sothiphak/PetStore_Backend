@@ -69,7 +69,7 @@ exports.addOrderItems = async (req, res) => {
 
                 // 🟢 NEW: Increment Product Sales Count
                 for (const item of orderItems) {
-                    await Product.findByIdAndUpdate(item.product, { $inc: { salesCount: item.qty } });
+                    await Product.findByIdAndUpdate(item.product, { $inc: { salesCount: item.quantity } });
                 }
                 
                 return res.status(201).json({
@@ -105,7 +105,7 @@ exports.addOrderItems = async (req, res) => {
 
     // 🟢 NEW: Increment Product Sales Count
     for (const item of orderItems) {
-        await Product.findByIdAndUpdate(item.product, { $inc: { salesCount: item.qty } });
+        await Product.findByIdAndUpdate(item.product, { $inc: { salesCount: item.quantity } });
     }
 
     // ✅ SEND RESPONSE IMMEDIATELY
