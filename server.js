@@ -41,10 +41,10 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// 3. 🛡️ Rate Limiting (Limit each IP to 100 requests per 15 minutes)
+// 3. 🛡️ Rate Limiting (Limit each IP to 1000 requests per 15 minutes)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, 
-  max: 100, 
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // Higher limit for development
   standardHeaders: true, 
   legacyHeaders: false,
   message: { message: 'Too many requests from this IP, please try again after 15 minutes' }
