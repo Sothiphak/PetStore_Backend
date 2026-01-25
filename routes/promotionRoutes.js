@@ -4,7 +4,9 @@ const {
   getPromotions, 
   createPromotion, 
   deletePromotion,
-  validatePromotion // 👈 Import new function
+  validatePromotion,
+  getProductDiscounts,
+  updatePromotion
 } = require('../controllers/promotionController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
@@ -13,7 +15,11 @@ router.route('/')
   .get(protect, admin, getPromotions)
   .post(protect, admin, createPromotion);
 
+// 🟢 NEW: Public Route for Product Badges (MUST come before /:id)
+router.get('/product-discounts', getProductDiscounts); 
+
 router.route('/:id')
+  .put(protect, admin, updatePromotion)
   .delete(protect, admin, deletePromotion);
 
 // 🟢 Public Route for Customers (Validate Code)

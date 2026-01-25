@@ -6,7 +6,7 @@ const {
   getOrderById, 
   checkOrderPayment,
   getOrders,
-  updateOrderStatus // 👈 FIXED: Was 'updateOrderStatusOrderStatus'
+  updateOrderStatus 
 } = require('../controllers/orderController');
 const { protect, admin } = require('../middleware/authMiddleware');
 

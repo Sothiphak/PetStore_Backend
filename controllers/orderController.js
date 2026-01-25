@@ -1,5 +1,6 @@
 const Order = require('../models/Order');
 const Product = require('../models/Product'); 
+const Promotion = require('../models/Promotion'); // 🟢 NEW: Import Promotion
 const sendEmail = require('../utils/sendEmail'); 
 const PaymentService = require('../services/paymentService'); 
 
@@ -18,7 +19,8 @@ exports.addOrderItems = async (req, res) => {
       shippingPrice, 
       totalPrice,
       isPaid,
-      paidAt
+      paidAt,
+      promoCode // 🟢 NEW: Receive the code from Frontend
     } = req.body;
 
     if (!orderItems || orderItems.length === 0) {
@@ -39,7 +41,9 @@ exports.addOrderItems = async (req, res) => {
       status: 'Pending'
     });
 
-    // 🟢 BAKONG LOGIC
+    // =========================================
+    // 🟢 1. BAKONG PAYMENT FLOW
+    // =========================================
     if (paymentMethod === 'Bakong') {
         const billNumber = order._id.toString().slice(-10);
         
@@ -54,6 +58,14 @@ exports.addOrderItems = async (req, res) => {
                 };
                 
                 await order.save();
+                
+                // 🟢 NEW: Increment Coupon Usage (Bakong)
+                if (promoCode) {
+                    await Promotion.findOneAndUpdate(
+                        { code: promoCode.toUpperCase() },
+                        { $inc: { usageCount: 1 } }
+                    );
+                }
                 
                 return res.status(201).json({
                     _id: order._id,
@@ -73,14 +85,23 @@ exports.addOrderItems = async (req, res) => {
         }
     }
 
-    // 3. Standard Order Save (COD, Card, etc.)
+    // =========================================
+    // 🟢 2. STANDARD FLOW (COD, Card, etc.)
+    // =========================================
     const createdOrder = await order.save();
+
+    // 🟢 NEW: Increment Coupon Usage (Standard)
+    if (promoCode) {
+        await Promotion.findOneAndUpdate(
+            { code: promoCode.toUpperCase() },
+            { $inc: { usageCount: 1 } }
+        );
+    }
 
     // ✅ SEND RESPONSE IMMEDIATELY
     res.status(201).json(createdOrder);
 
     // 📧 Send Email AFTER Response (Non-blocking)
-    // This runs in the background and doesn't delay the response
     if (paymentMethod !== 'Bakong') {
         setImmediate(async () => {
             try {

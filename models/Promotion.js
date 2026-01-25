@@ -10,7 +10,7 @@ const PromotionSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['percent', 'fixed', 'shipping'], // Supports 10% off, $5 off, or Free Shipping
+    enum: ['percent', 'fixed', 'shipping'],
     required: true,
     default: 'percent'
   },
@@ -22,8 +22,28 @@ const PromotionSchema = new mongoose.Schema({
   startDate: { type: Date, required: true },
   endDate: { type: Date, required: true },
   isActive: { type: Boolean, default: true },
-  usageLimit: { type: Number, default: 0 }, // 0 = Unlimited
-  usageCount: { type: Number, default: 0 }
+  usageLimit: { type: Number, default: 0 },
+  usageCount: { type: Number, default: 0 },
+  
+  // NEW: Campaign Type - distinguishes promo codes from product discounts
+  campaignType: {
+    type: String,
+    enum: ['promo_code', 'product_discount'],
+    default: 'promo_code'
+  },
+  
+  // NEW: Applicable Products - which products this discount applies to
+  applicableProducts: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product'
+  }],
+  
+  // NEW: Minimum Purchase - only for promo_code type
+  minPurchase: {
+    type: Number,
+    default: 0
+  }
+  
 }, { timestamps: true });
 
 module.exports = mongoose.model('Promotion', PromotionSchema);
