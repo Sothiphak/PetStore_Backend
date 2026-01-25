@@ -76,20 +76,25 @@ exports.addOrderItems = async (req, res) => {
     // 3. Standard Order Save (COD, Card, etc.)
     const createdOrder = await order.save();
 
-    // 📧 Send Email
-    if (paymentMethod !== 'Bakong') {
-        try {
-            await sendEmail({
-                email: req.user.email,
-                subject: 'Order Confirmation - PetStore+',
-                message: `Thank you for your order! Your Order ID is: ${createdOrder._id}`
-            });
-        } catch (e) { 
-            console.log('Email failed to send:', e.message); 
-        }
-    }
-
+    // ✅ SEND RESPONSE IMMEDIATELY
     res.status(201).json(createdOrder);
+
+    // 📧 Send Email AFTER Response (Non-blocking)
+    // This runs in the background and doesn't delay the response
+    if (paymentMethod !== 'Bakong') {
+        setImmediate(async () => {
+            try {
+                await sendEmail({
+                    email: req.user.email,
+                    subject: 'Order Confirmation - PetStore+',
+                    message: `Thank you for your order! Your Order ID is: ${createdOrder._id}`
+                });
+                console.log(`✅ Confirmation email sent to ${req.user.email}`);
+            } catch (e) { 
+                console.error('❌ Email failed to send:', e.message); 
+            }
+        });
+    }
     
   } catch (error) {
     console.error('Order Create Error:', error);
@@ -97,11 +102,16 @@ exports.addOrderItems = async (req, res) => {
   }
 };
 
-// ... (KEEP ALL OTHER FUNCTIONS BELOW: checkOrderPayment, getMyOrders, getOrderById, getOrders, updateOrderStatus) ...
 exports.checkOrderPayment = async (req, res) => {
-    const order = await Order.findById(req.params.id);
-    if (order) {
-        if (order.isPaid) return res.json({ paid: true });
+    try {
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
+        if (order.isPaid) {
+            return res.json({ paid: true });
+        }
 
         if (order.paymentMethod === 'Bakong' && order.paymentResult?.id) {
             const isPaid = await PaymentService.checkTransaction(order.paymentResult.id);
@@ -114,16 +124,22 @@ exports.checkOrderPayment = async (req, res) => {
                 return res.json({ paid: true });
             }
         }
+        
         return res.json({ paid: false });
-    } else {
-        res.status(404);
-        throw new Error('Order not found');
+    } catch (error) {
+        console.error('Check Payment Error:', error);
+        res.status(500).json({ message: 'Server Error' });
     }
 };
 
 exports.getMyOrders = async (req, res) => {
-    const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
-    res.json(orders);
+    try {
+        const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
+        res.json(orders);
+    } catch (error) {
+        console.error('Get My Orders Error:', error);
+        res.status(500).json({ message: 'Server Error' });
+    }
 };
 
 exports.getOrderById = async (req, res) => {
@@ -150,7 +166,7 @@ exports.getOrders = async (req, res) => {
       .sort({ createdAt: -1 });
     res.json(orders);
   } catch (error) {
-    console.error(error);
+    console.error('Get Orders Error:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 };
@@ -176,6 +192,7 @@ exports.updateOrderStatus = async (req, res) => {
       res.status(404).json({ message: 'Order not found' });
     }
   } catch (error) {
+    console.error('Update Order Status Error:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 };

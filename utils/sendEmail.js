@@ -1,24 +1,25 @@
+// utils/sendEmail.js - Make sure timeout is set
 const nodemailer = require('nodemailer');
 
 const sendEmail = async (options) => {
   const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    service: process.env.EMAIL_SERVICE || 'gmail',
     auth: {
-      user: process.env.EMAIL_USER, 
-      pass: process.env.EMAIL_PASS, 
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
     },
+    connectionTimeout: 5000, // ✅ Add timeout
+    greetingTimeout: 5000,   // ✅ Add timeout
   });
 
   const mailOptions = {
-    from: `"PetStore+ Support" <${process.env.EMAIL_USER}>`,
+    from: `PetStore+ <${process.env.EMAIL_USER}>`,
     to: options.email,
     subject: options.subject,
     html: options.message,
   };
 
-  const info = await transporter.sendMail(mailOptions);
-  console.log("📧 Real Email Sent: %s", info.messageId);
+  await transporter.sendMail(mailOptions);
 };
 
 module.exports = sendEmail;
-
