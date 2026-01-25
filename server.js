@@ -1,28 +1,36 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet'); // 🛡️ Security Headers
+const rateLimit = require('express-rate-limit'); // 🛡️ Brute Force Protection
+const mongoSanitize = require('express-mongo-sanitize'); // 🛡️ NoSQL Injection Prevention
+const xss = require('xss-clean'); // 🛡️ XSS Prevention
 const connectDB = require('./config/db');
 
 // Initialize App
 const app = express();
 
-// ✅ CORS Configuration
+// 1. 🛡️ Set Security Headers (First middleware)
+app.use(helmet());
+
+// 2. 🛡️ Strict CORS Configuration
 app.use(cors({
   origin: function(origin, callback) {
     const allowedOrigins = [
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'http://localhost:3000',
-      'http://127.0.0.1:5173',
+      'http://localhost:5173', // Vite Frontend
+      'http://localhost:5174', // Backup Port
+      // Add your production frontend URL here later, e.g., 'https://mypetstore.vercel.app'
     ];
     
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true);
+    // Allow requests with no origin (like mobile apps or curl) ONLY in development
+    if (!origin && process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
     
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      callback(null, true); // Allow anyway during development
+      callback(new Error('Not allowed by CORS')); // ⛔ Block unauthorized origins
     }
   },
   credentials: true,
@@ -30,9 +38,23 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
+// 3. 🛡️ Rate Limiting (Limit each IP to 100 requests per 15 minutes)
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, 
+  max: 100, 
+  standardHeaders: true, 
+  legacyHeaders: false,
+  message: { message: 'Too many requests from this IP, please try again after 15 minutes' }
+});
+app.use('/api', limiter);
+
 // Body parsing middleware
-app.use(express.json());
+app.use(express.json({ limit: '10kb' })); // 🛡️ Limit body size to prevent DoS
 app.use(express.urlencoded({ extended: true }));
+
+// 4. 🛡️ Data Sanitization
+app.use(mongoSanitize()); // Prevent NoSQL Injection (e.g. {"$gt": ""})
+app.use(xss()); // Prevent XSS attacks
 
 // Request logging
 app.use((req, res, next) => {
@@ -43,7 +65,7 @@ app.use((req, res, next) => {
 // Database
 connectDB();
 
-// 🟢 HEALTH CHECK ENDPOINT (Critical for Render!)
+// 🟢 HEALTH CHECK ENDPOINT
 app.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'ok', 
@@ -62,6 +84,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/products', require('./routes/productRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/promotions', require('./routes/promotionRoutes'));
+app.use('/api/payment', require('./routes/paymentRoutes')); // Ensure this matches your file name
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -77,7 +100,7 @@ app.use((req, res) => {
   res.status(404).json({ message: `Route not found: ${req.method} ${req.path}` });
 });
 
-// Start Server - CRITICAL: Bind to 0.0.0.0 for Render
+// Start Server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
