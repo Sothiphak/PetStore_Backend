@@ -8,7 +8,8 @@ const {
   createProduct, 
   updateProduct,
   deleteProduct,
-  createProductReview 
+  createProductReview,
+  getTopProducts // 🟢 NEW
 } = require('../controllers/productController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
@@ -29,6 +30,7 @@ const upload = multer({
 });
 
 // Routes
+router.get('/top', getTopProducts); // 🟢 NEW: Top Products
 router.get('/', getProducts);
 router.get('/:id', getProductById);
 

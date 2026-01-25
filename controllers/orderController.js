@@ -66,6 +66,11 @@ exports.addOrderItems = async (req, res) => {
                         { $inc: { usageCount: 1 } }
                     );
                 }
+
+                // 🟢 NEW: Increment Product Sales Count
+                for (const item of orderItems) {
+                    await Product.findByIdAndUpdate(item.product, { $inc: { salesCount: item.qty } });
+                }
                 
                 return res.status(201).json({
                     _id: order._id,
@@ -96,6 +101,11 @@ exports.addOrderItems = async (req, res) => {
             { code: promoCode.toUpperCase() },
             { $inc: { usageCount: 1 } }
         );
+    }
+
+    // 🟢 NEW: Increment Product Sales Count
+    for (const item of orderItems) {
+        await Product.findByIdAndUpdate(item.product, { $inc: { salesCount: item.qty } });
     }
 
     // ✅ SEND RESPONSE IMMEDIATELY

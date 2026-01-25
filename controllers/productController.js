@@ -188,6 +188,18 @@ exports.createProductReview = async (req, res) => {
       res.status(404).json({ message: 'Product not found' });
     }
   } catch (error) {
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Get top rated products
+// @route   GET /api/products/top
+// @access  Public
+exports.getTopProducts = async (req, res) => {
+  try {
+    const products = await Product.find({}).sort({ salesCount: -1 }).limit(4);
+    res.json(products);
+  } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server Error' });
   }

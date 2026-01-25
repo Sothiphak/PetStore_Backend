@@ -24,7 +24,9 @@ const ProductSchema = new mongoose.Schema({
   // 👇 NEW: Reviews Array & Ratings
   reviews: [reviewSchema],
   rating: { type: Number, required: true, default: 0 },
+  rating: { type: Number, required: true, default: 0 },
   numReviews: { type: Number, required: true, default: 0 },
+  salesCount: { type: Number, required: true, default: 0 }, // 🟢 NEW: Track Sales
 
 }, { timestamps: true });
 
