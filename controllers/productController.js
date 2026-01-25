@@ -1,4 +1,5 @@
 const Product = require('../models/Product');
+const { cloudinary } = require('../config/cloudinary');
 
 // @desc    Fetch all products
 // @route   GET /api/products
@@ -37,22 +38,23 @@ exports.createProduct = async (req, res) => {
   try {
     const { name, price, description, category, stockQuantity } = req.body;
     
-    // 🟢 HANDLE IMAGE: Check for File Upload first, then String URL
-    let finalPath = 'https://via.placeholder.com/150'; // Default fallback
+    // ✅ CLOUDINARY: Get the uploaded image URL
+    let imageUrl = 'https://via.placeholder.com/150'; // Default fallback
     
     if (req.file) {
-      // If Multer processed a file
-      finalPath = `/uploads/${req.file.filename}`; 
+      // Cloudinary automatically uploads and gives us the URL
+      imageUrl = req.file.path; // This is the Cloudinary URL
+      console.log('✅ Image uploaded to Cloudinary:', imageUrl);
     } else if (req.body.imageUrl) {
-      // If a text URL was sent (Note: Frontend sends 'image', but we map to imageUrl)
-      finalPath = req.body.imageUrl; 
+      // If a text URL was provided
+      imageUrl = req.body.imageUrl;
     }
 
     const product = new Product({
       name,
       price,
       description,
-      imageUrl: finalPath, // 👈 FIXED: Matches your DB Schema 'imageUrl'
+      imageUrl: imageUrl,
       category,
       stockQuantity: stockQuantity || 0,
       user: req.user._id,
@@ -83,9 +85,25 @@ exports.updateProduct = async (req, res) => {
       product.category = category || product.category;
       product.stockQuantity = stockQuantity || product.stockQuantity;
 
-      // 🟢 Update Image only if a new one is provided
+      // ✅ Update Image and delete old one from Cloudinary
       if (req.file) {
-        product.imageUrl = `/uploads/${req.file.filename}`; // 👈 FIXED
+        // Delete old image from Cloudinary if it exists
+        if (product.imageUrl && product.imageUrl.includes('cloudinary.com')) {
+          try {
+            // Extract public_id from Cloudinary URL
+            const urlParts = product.imageUrl.split('/');
+            const publicIdWithExtension = urlParts[urlParts.length - 1];
+            const publicId = `petstore-products/${publicIdWithExtension.split('.')[0]}`;
+            await cloudinary.uploader.destroy(publicId);
+            console.log('🗑️ Old image deleted from Cloudinary');
+          } catch (deleteError) {
+            console.error('Failed to delete old image:', deleteError.message);
+          }
+        }
+        
+        // Set new image URL
+        product.imageUrl = req.file.path;
+        console.log('✅ Image updated on Cloudinary:', req.file.path);
       } else if (req.body.imageUrl) {
         product.imageUrl = req.body.imageUrl;
       }
@@ -109,6 +127,19 @@ exports.deleteProduct = async (req, res) => {
     const product = await Product.findById(req.params.id);
 
     if (product) {
+      // ✅ Delete image from Cloudinary before deleting product
+      if (product.imageUrl && product.imageUrl.includes('cloudinary.com')) {
+        try {
+          const urlParts = product.imageUrl.split('/');
+          const publicIdWithExtension = urlParts[urlParts.length - 1];
+          const publicId = `petstore-products/${publicIdWithExtension.split('.')[0]}`;
+          await cloudinary.uploader.destroy(publicId);
+          console.log('🗑️ Image deleted from Cloudinary');
+        } catch (deleteError) {
+          console.error('Failed to delete image:', deleteError.message);
+        }
+      }
+
       await product.deleteOne(); 
       res.json({ message: 'Product removed' });
     } else {

@@ -6,7 +6,7 @@ const sendEmail = async (options) => {
     service: process.env.EMAIL_SERVICE || 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD,
+      pass: process.env.EMAIL_PASS,
     },
     connectionTimeout: 5000, // ✅ Add timeout
     greetingTimeout: 5000,   // ✅ Add timeout
