@@ -41,15 +41,15 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// 3. 🛡️ Rate Limiting (Limit each IP to 1000 requests per 15 minutes)
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, 
-  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // Higher limit for development
-  standardHeaders: true, 
-  legacyHeaders: false,
-  message: { message: 'Too many requests from this IP, please try again after 15 minutes' }
-});
-app.use('/api', limiter);
+// 3. 🛡️ Rate Limiting - DISABLED (uncomment to re-enable)
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, 
+//   max: process.env.NODE_ENV === 'production' ? 100 : 1000,
+//   standardHeaders: true, 
+//   legacyHeaders: false,
+//   message: { message: 'Too many requests from this IP, please try again after 15 minutes' }
+// });
+// app.use('/api', limiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10kb' })); // 🛡️ Limit body size to prevent DoS
