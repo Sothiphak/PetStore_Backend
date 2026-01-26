@@ -1,14 +1,28 @@
 const nodemailer = require('nodemailer');
 
-const sendEmail = async (options) => {
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER, 
-      pass: process.env.EMAIL_PASS, 
-    },
-  });
+const transporter = nodemailer.createTransport({
+  host: 'smtp.googlemail.com', // 🟢 Try googlemail alias to bypass firewall
+  port: 465, // SSL works best for Gmail
+  secure: true,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+  tls: {
+    rejectUnauthorized: false
+  }
+});
 
+// Verify connection configuration
+transporter.verify(function (error, success) {
+  if (error) {
+    console.log("❌ SMTP Connection Error:", error);
+  } else {
+    console.log("✅ SMTP Server is ready to take our messages");
+  }
+});
+
+const sendEmail = async (options) => {
   const mailOptions = {
     from: `"PetStore+ Support" <${process.env.EMAIL_USER}>`,
     to: options.email,
@@ -16,18 +30,8 @@ const sendEmail = async (options) => {
     html: options.message,
   };
 
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Email sent: %s", info.messageId);
-  } catch (error) {
-    console.error("⚠️ SMTP Failed (Cloud Firewall detected). Switching to Console Mode.");
-    console.log("==========================================");
-    console.log("📧 MOCK EMAIL SENT TO:", options.email);
-    console.log("SUBJECT:", options.subject);
-    console.log("CONTENT (HTML PREVIEW):", options.message.substring(0, 100) + "...");
-    console.log("==========================================");
-    // Don't throw error, let the system think it succeeded
-  }
+  const info = await transporter.sendMail(mailOptions);
+  console.log("✅ Email sent: %s", info.messageId);
 };
 
 module.exports = sendEmail;
