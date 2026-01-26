@@ -6,7 +6,10 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 const sendEmail = async (options) => {
   const msg = {
     to: options.email,
-    from: process.env.EMAIL_FROM || 'sopheapsothiphak@gmail.com', // Must be verified sender
+    from: {
+      email: process.env.EMAIL_FROM || 'sopheapsothiphak@gmail.com',
+      name: 'PetStore+ Support'
+    },
     subject: options.subject,
     html: options.message,
   };
