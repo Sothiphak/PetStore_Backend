@@ -1,9 +1,9 @@
 const Order = require('../models/Order');
-const Product = require('../models/Product'); 
+const Product = require('../models/Product');
 const Promotion = require('../models/Promotion'); // 🟢 NEW: Import Promotion
-const sendEmail = require('../utils/sendEmail'); 
-const PaymentService = require('../services/paymentService'); 
-const { generateInvoiceHtml } = require('../utils/invoiceTemplate'); 
+const sendEmail = require('../utils/sendEmail');
+const PaymentService = require('../services/paymentService');
+const { generateInvoiceHtml } = require('../utils/invoiceTemplate');
 
 exports.addOrderItems = async (req, res) => {
   try {
@@ -11,13 +11,13 @@ exports.addOrderItems = async (req, res) => {
       return res.status(401).json({ message: 'User not authorized. Please login.' });
     }
 
-    const { 
-      orderItems, 
-      shippingAddress, 
-      paymentMethod, 
-      itemsPrice, 
-      taxPrice, 
-      shippingPrice, 
+    const {
+      orderItems,
+      shippingAddress,
+      paymentMethod,
+      itemsPrice,
+      taxPrice,
+      shippingPrice,
       totalPrice,
       isPaid,
       paidAt,
@@ -26,7 +26,7 @@ exports.addOrderItems = async (req, res) => {
 
     if (!orderItems || orderItems.length === 0) {
       return res.status(400).json({ message: 'No order items' });
-    } 
+    }
 
     const order = new Order({
       orderItems,
@@ -37,7 +37,7 @@ exports.addOrderItems = async (req, res) => {
       taxPrice,
       shippingPrice,
       totalPrice,
-      isPaid: isPaid === true, 
+      isPaid: isPaid === true,
       paidAt: isPaid ? (paidAt || Date.now()) : null,
       status: 'Pending'
     });
@@ -46,64 +46,64 @@ exports.addOrderItems = async (req, res) => {
     // 🟢 1. BAKONG PAYMENT FLOW
     // =========================================
     if (paymentMethod === 'Bakong') {
-        const billNumber = order._id.toString().slice(-10);
-        
-        try {
-            const qrResult = await PaymentService.generateKHQR(totalPrice, billNumber);
-            
-            if (qrResult.success) {
-                order.paymentResult = {
-                    id: qrResult.md5,
-                    status: 'pending',
-                    email_address: req.user.email
-                };
-                
-                await order.save();
-                
-                // 🟢 NEW: Increment Coupon Usage (Bakong)
-                if (promoCode) {
-                    await Promotion.findOneAndUpdate(
-                        { code: promoCode.toUpperCase() },
-                        { $inc: { usageCount: 1 } }
-                    );
-                }
+      const billNumber = order._id.toString().slice(-10);
 
-                // 🟢 NEW: Increment Product Sales Count
-                for (const item of orderItems) {
-                    await Product.findByIdAndUpdate(item.product, { $inc: { salesCount: item.quantity } });
-                }
-                
-                // 📧 Send "Pending Payment" Invoice for Bakong (before return!)
-                setImmediate(async () => {
-                    try {
-                        const invoiceHtml = generateInvoiceHtml(order, req.user);
-                        await sendEmail({
-                            email: req.user.email,
-                            subject: 'Pending Invoice - PetStore+ (Scan to Pay)',
-                            message: invoiceHtml
-                        });
-                        console.log(`✅ Bakong Invoice sent to ${req.user.email}`);
-                    } catch (e) { 
-                        console.error('❌ Bakong Email failed:', e.message); 
-                    }
-                });
+      try {
+        const qrResult = await PaymentService.generateKHQR(totalPrice, billNumber);
 
-                return res.status(201).json({
-                    _id: order._id,
-                    qrImage: qrResult.qrImage,
-                    isBakong: true,
-                    totalPrice,
-                    paymentMethod
-                });
-            } else {
-                return res.status(400).json({ 
-                    message: qrResult.message || "Payment Gateway Error: Could not generate KHQR." 
-                });
+        if (qrResult.success) {
+          order.paymentResult = {
+            id: qrResult.md5,
+            status: 'pending',
+            email_address: req.user.email
+          };
+
+          await order.save();
+
+          // 🟢 NEW: Increment Coupon Usage (Bakong)
+          if (promoCode) {
+            await Promotion.findOneAndUpdate(
+              { code: promoCode.toUpperCase() },
+              { $inc: { usageCount: 1 } }
+            );
+          }
+
+          // 🟢 NEW: Increment Product Sales Count
+          for (const item of orderItems) {
+            await Product.findByIdAndUpdate(item.product, { $inc: { salesCount: item.quantity } });
+          }
+
+          // 📧 Send "Pending Payment" Invoice for Bakong (before return!)
+          setImmediate(async () => {
+            try {
+              const invoiceHtml = generateInvoiceHtml(order, req.user);
+              await sendEmail({
+                email: req.user.email,
+                subject: 'Pending Invoice - PetStore+ (Scan to Pay)',
+                message: invoiceHtml
+              });
+              console.log(`✅ Bakong Invoice sent to ${req.user.email}`);
+            } catch (e) {
+              console.error('❌ Bakong Email failed:', e.message);
             }
-        } catch (err) {
-            console.error("Bakong Service Error:", err);
-            return res.status(500).json({ message: "Bakong Service Unavailable" });
+          });
+
+          return res.status(201).json({
+            _id: order._id,
+            qrImage: qrResult.qrImage,
+            isBakong: true,
+            totalPrice,
+            paymentMethod
+          });
+        } else {
+          return res.status(400).json({
+            message: qrResult.message || "Payment Gateway Error: Could not generate KHQR."
+          });
         }
+      } catch (err) {
+        console.error("Bakong Service Error:", err);
+        return res.status(500).json({ message: "Bakong Service Unavailable" });
+      }
     }
 
     // =========================================
@@ -113,15 +113,15 @@ exports.addOrderItems = async (req, res) => {
 
     // 🟢 NEW: Increment Coupon Usage (Standard)
     if (promoCode) {
-        await Promotion.findOneAndUpdate(
-            { code: promoCode.toUpperCase() },
-            { $inc: { usageCount: 1 } }
-        );
+      await Promotion.findOneAndUpdate(
+        { code: promoCode.toUpperCase() },
+        { $inc: { usageCount: 1 } }
+      );
     }
 
     // 🟢 NEW: Increment Product Sales Count
     for (const item of orderItems) {
-        await Product.findByIdAndUpdate(item.product, { $inc: { salesCount: item.quantity } });
+      await Product.findByIdAndUpdate(item.product, { $inc: { salesCount: item.quantity } });
     }
 
     // ✅ SEND RESPONSE IMMEDIATELY
@@ -129,21 +129,21 @@ exports.addOrderItems = async (req, res) => {
 
     // 📧 Send Email AFTER Response (Non-blocking)
     if (paymentMethod !== 'Bakong') {
-        setImmediate(async () => {
-            try {
-                const invoiceHtml = generateInvoiceHtml(createdOrder, req.user);
-                await sendEmail({
-                    email: req.user.email,
-                    subject: 'Order Confirmation - PetStore+',
-                    message: invoiceHtml
-                });
-                console.log(`✅ Confirmation email sent to ${req.user.email}`);
-            } catch (e) { 
-                console.error('❌ Email failed to send:', e.message); 
-            }
-        });
+      setImmediate(async () => {
+        try {
+          const invoiceHtml = generateInvoiceHtml(createdOrder, req.user);
+          await sendEmail({
+            email: req.user.email,
+            subject: 'Order Confirmation - PetStore+',
+            message: invoiceHtml
+          });
+          console.log(`✅ Confirmation email sent to ${req.user.email}`);
+        } catch (e) {
+          console.error('❌ Email failed to send:', e.message);
+        }
+      });
     }
-    
+
   } catch (error) {
     console.error('Order Create Error:', error);
     res.status(500).json({ message: error.message });
@@ -151,51 +151,51 @@ exports.addOrderItems = async (req, res) => {
 };
 
 exports.checkOrderPayment = async (req, res) => {
-    try {
-        const order = await Order.findById(req.params.id);
-        if (!order) {
-            return res.status(404).json({ message: 'Order not found' });
-        }
-
-        if (order.isPaid) {
-            return res.json({ paid: true });
-        }
-
-        if (order.paymentMethod === 'Bakong' && order.paymentResult?.id) {
-            const isPaid = await PaymentService.checkTransaction(order.paymentResult.id);
-            if (isPaid) {
-                order.isPaid = true;
-                order.paidAt = Date.now();
-                order.paymentResult.status = 'success';
-                order.status = 'Processing';
-                await order.save();
-                return res.json({ paid: true });
-            }
-        }
-        
-        return res.json({ paid: false });
-    } catch (error) {
-        console.error('Check Payment Error:', error);
-        res.status(500).json({ message: 'Server Error' });
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
     }
+
+    if (order.isPaid) {
+      return res.json({ paid: true });
+    }
+
+    if (order.paymentMethod === 'Bakong' && order.paymentResult?.id) {
+      const isPaid = await PaymentService.checkTransaction(order.paymentResult.id);
+      if (isPaid) {
+        order.isPaid = true;
+        order.paidAt = Date.now();
+        order.paymentResult.status = 'success';
+        order.status = 'Processing';
+        await order.save();
+        return res.json({ paid: true });
+      }
+    }
+
+    return res.json({ paid: false });
+  } catch (error) {
+    console.error('Check Payment Error:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
 };
 
 exports.getMyOrders = async (req, res) => {
-    try {
-        const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
-        res.json(orders);
-    } catch (error) {
-        console.error('Get My Orders Error:', error);
-        res.status(500).json({ message: 'Server Error' });
-    }
+  try {
+    const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
+    res.json(orders);
+  } catch (error) {
+    console.error('Get My Orders Error:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
 };
 
 exports.getOrderById = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
-      .populate('user', 'firstName lastName email phone')  
-      .populate('orderItems.product', 'name price image'); 
-    
+      .populate('user', 'firstName lastName email phone')
+      .populate('orderItems.product', 'name price image');
+
     if (order) {
       res.json(order);
     } else {
@@ -227,35 +227,35 @@ exports.updateOrderStatus = async (req, res) => {
     if (order) {
       const oldStatus = order.status;
       order.status = status;
-      
+
       if (status === 'Delivered') {
         order.isDelivered = true;
         order.deliveredAt = Date.now();
         if (order.paymentMethod === 'COD') {
-           order.isPaid = true;
-           order.paidAt = Date.now();
+          order.isPaid = true;
+          order.paidAt = Date.now();
         }
       }
-      
+
       const updatedOrder = await order.save();
-      
+
       // 📧 Send Email Notification if status changed
       if (oldStatus !== status) {
-          const { getOrderStatusHtml } = require('../utils/emailTemplates'); // Lazy load
-          
-          setImmediate(async () => {
-              try {
-                  const emailHtml = getOrderStatusHtml(updatedOrder, order.user);
-                  await sendEmail({
-                      email: order.user.email,
-                      subject: `Order Update #${order._id} - ${status}`,
-                      message: emailHtml
-                  });
-                  console.log(`✅ Order status email sent to ${order.user.email}`);
-              } catch (e) {
-                  console.error('❌ Failed to send status email:', e.message);
-              }
-          });
+        const { getOrderStatusHtml } = require('../utils/emailTemplates'); // Lazy load
+
+        setImmediate(async () => {
+          try {
+            const emailHtml = getOrderStatusHtml(updatedOrder, order.user);
+            await sendEmail({
+              email: order.user.email,
+              subject: `Order Update #${order._id} - ${status}`,
+              message: emailHtml
+            });
+            console.log(`✅ Order status email sent to ${order.user.email}`);
+          } catch (e) {
+            console.error('❌ Failed to send status email:', e.message);
+          }
+        });
       }
 
       res.json(updatedOrder);
@@ -264,6 +264,48 @@ exports.updateOrderStatus = async (req, res) => {
     }
   } catch (error) {
     console.error('Update Order Status Error:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// 🟢 NEW: Secure Pay Endpoint (Admin OR Owner)
+exports.updateOrderToPaid = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (order) {
+      // 🔒 SECURE: Check if User is Owner OR Admin
+      if (order.user.toString() !== req.user._id.toString() && !req.user.isAdmin) {
+        return res.status(401).json({ message: 'Not authorized to update this order' });
+      }
+
+      // Handle Cash/COD Confirmation (Not Paid, but Method Update)
+      if (req.body.paymentMethod === 'Cash' || req.body.paymentMethod === 'COD') {
+        order.paymentMethod = 'COD';
+        // Do NOT set isPaid = true for Cash
+      } else {
+        // Default: Mark as Paid (Card, Bakong)
+        order.isPaid = true;
+        order.paidAt = Date.now();
+        order.paymentResult = {
+          id: req.body.id || 'manual',
+          status: 'success',
+          update_time: Date.now(),
+          email_address: req.user.email,
+        };
+        // Update Method if provided (e.g. Card)
+        if (req.body.paymentMethod) {
+          order.paymentMethod = req.body.paymentMethod;
+        }
+      }
+
+      const updatedOrder = await order.save();
+      res.json(updatedOrder);
+    } else {
+      res.status(404).json({ message: 'Order not found' });
+    }
+  } catch (error) {
+    console.error('Update Order Paid Error:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 };
