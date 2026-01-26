@@ -1,37 +1,26 @@
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 
-const transporter = nodemailer.createTransport({
-  host: 'smtp.googlemail.com', // 🟢 Try googlemail alias to bypass firewall
-  port: 465, // SSL works best for Gmail
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false
-  }
-});
-
-// Verify connection configuration
-transporter.verify(function (error, success) {
-  if (error) {
-    console.log("❌ SMTP Connection Error:", error);
-  } else {
-    console.log("✅ SMTP Server is ready to take our messages");
-  }
-});
+// Set API Key
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 const sendEmail = async (options) => {
-  const mailOptions = {
-    from: `"PetStore+ Support" <${process.env.EMAIL_USER}>`,
+  const msg = {
     to: options.email,
+    from: process.env.EMAIL_FROM || 'sopheapsothiphak@gmail.com', // Must be verified sender
     subject: options.subject,
     html: options.message,
   };
 
-  const info = await transporter.sendMail(mailOptions);
-  console.log("✅ Email sent: %s", info.messageId);
+  try {
+    await sgMail.send(msg);
+    console.log("✅ SendGrid Email Sent to:", options.email);
+  } catch (error) {
+    console.error("❌ SendGrid Error:", error);
+
+    if (error.response) {
+      console.error(error.response.body);
+    }
+  }
 };
 
 module.exports = sendEmail;
