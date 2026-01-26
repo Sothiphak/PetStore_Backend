@@ -9,6 +9,9 @@ const connectDB = require('./config/db');
 // Initialize App
 const app = express();
 
+// 🛡️ Trust Render's Proxy (Fixes rate limiter warning on production)
+app.set('trust proxy', 1);
+
 // 1. 🛡️ Set Security Headers (First middleware)
 app.use(helmet());
 
