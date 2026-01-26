@@ -3,6 +3,7 @@ const Product = require('../models/Product');
 const Promotion = require('../models/Promotion'); // 🟢 NEW: Import Promotion
 const sendEmail = require('../utils/sendEmail'); 
 const PaymentService = require('../services/paymentService'); 
+const { generateInvoiceHtml } = require('../utils/invoiceTemplate'); 
 
 exports.addOrderItems = async (req, res) => {
   try {
@@ -79,6 +80,21 @@ exports.addOrderItems = async (req, res) => {
                     totalPrice,
                     paymentMethod
                 });
+
+                // 📧 Send "Pending Payment" Invoice for Bakong
+                setImmediate(async () => {
+                    try {
+                        const invoiceHtml = generateInvoiceHtml(order, req.user);
+                        await sendEmail({
+                            email: req.user.email,
+                            subject: 'Pending Invoice - PetStore+ (Scan to Pay)',
+                            message: invoiceHtml
+                        });
+                        console.log(`✅ Bakong Invoice sent to ${req.user.email}`);
+                    } catch (e) { 
+                        console.error('❌ Bakong Email failed:', e.message); 
+                    }
+                });
             } else {
                 return res.status(400).json({ 
                     message: qrResult.message || "Payment Gateway Error: Could not generate KHQR." 
@@ -115,10 +131,11 @@ exports.addOrderItems = async (req, res) => {
     if (paymentMethod !== 'Bakong') {
         setImmediate(async () => {
             try {
+                const invoiceHtml = generateInvoiceHtml(createdOrder, req.user);
                 await sendEmail({
                     email: req.user.email,
                     subject: 'Order Confirmation - PetStore+',
-                    message: `Thank you for your order! Your Order ID is: ${createdOrder._id}`
+                    message: invoiceHtml
                 });
                 console.log(`✅ Confirmation email sent to ${req.user.email}`);
             } catch (e) { 
