@@ -73,15 +73,7 @@ exports.addOrderItems = async (req, res) => {
                     await Product.findByIdAndUpdate(item.product, { $inc: { salesCount: item.quantity } });
                 }
                 
-                return res.status(201).json({
-                    _id: order._id,
-                    qrImage: qrResult.qrImage,
-                    isBakong: true,
-                    totalPrice,
-                    paymentMethod
-                });
-
-                // 📧 Send "Pending Payment" Invoice for Bakong
+                // 📧 Send "Pending Payment" Invoice for Bakong (before return!)
                 setImmediate(async () => {
                     try {
                         const invoiceHtml = generateInvoiceHtml(order, req.user);
@@ -94,6 +86,14 @@ exports.addOrderItems = async (req, res) => {
                     } catch (e) { 
                         console.error('❌ Bakong Email failed:', e.message); 
                     }
+                });
+
+                return res.status(201).json({
+                    _id: order._id,
+                    qrImage: qrResult.qrImage,
+                    isBakong: true,
+                    totalPrice,
+                    paymentMethod
                 });
             } else {
                 return res.status(400).json({ 
