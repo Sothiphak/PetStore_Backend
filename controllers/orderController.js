@@ -222,10 +222,12 @@ exports.getOrders = async (req, res) => {
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id).populate('user', 'firstName lastName email');
 
     if (order) {
+      const oldStatus = order.status;
       order.status = status;
+      
       if (status === 'Delivered') {
         order.isDelivered = true;
         order.deliveredAt = Date.now();
@@ -234,7 +236,28 @@ exports.updateOrderStatus = async (req, res) => {
            order.paidAt = Date.now();
         }
       }
+      
       const updatedOrder = await order.save();
+      
+      // 📧 Send Email Notification if status changed
+      if (oldStatus !== status) {
+          const { getOrderStatusHtml } = require('../utils/emailTemplates'); // Lazy load
+          
+          setImmediate(async () => {
+              try {
+                  const emailHtml = getOrderStatusHtml(updatedOrder, order.user);
+                  await sendEmail({
+                      email: order.user.email,
+                      subject: `Order Update #${order._id} - ${status}`,
+                      message: emailHtml
+                  });
+                  console.log(`✅ Order status email sent to ${order.user.email}`);
+              } catch (e) {
+                  console.error('❌ Failed to send status email:', e.message);
+              }
+          });
+      }
+
       res.json(updatedOrder);
     } else {
       res.status(404).json({ message: 'Order not found' });

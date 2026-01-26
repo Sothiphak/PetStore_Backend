@@ -181,3 +181,57 @@ exports.validatePromotion = async (req, res) => {
     res.status(500).json({ message: 'Validation failed' });
   }
 };
+
+// @desc    Broadcast promotion to all users
+// @route   POST /api/promotions/:id/broadcast
+exports.broadcastPromotion = async (req, res) => {
+  try {
+    const promotion = await Promotion.findById(req.params.id);
+    if (!promotion) {
+      return res.status(404).json({ message: 'Promotion not found' });
+    }
+
+    // Lazy load standard User model & email helpers
+    const User = require('../models/User'); 
+    const sendEmail = require('../utils/sendEmail');
+    const { getPromotionHtml } = require('../utils/emailTemplates');
+
+    // 1. Get all users with email
+    const users = await User.find({ email: { $exists: true } }).select('email firstName');
+
+    if (users.length === 0) {
+      return res.status(400).json({ message: 'No users to email' });
+    }
+
+    // 2. Prepare Email Content
+    const emailHtml = getPromotionHtml(promotion);
+    const subject = `Special Offer: ${promotion.type === 'percent' ? `${promotion.value}% OFF` : `$${promotion.value} OFF`} at PetStore+! 🐾`;
+
+    // 3. Send in Background (Basic Loop)
+    // NOTE: In production, use a Message Queue (BullMQ, RabbitMQ)
+    setImmediate(async () => {
+        let successCount = 0;
+        console.log(`🚀 Starting Broadcast for Promo: ${promotion.code} to ${users.length} users...`);
+        
+        for (const user of users) {
+             try {
+                await sendEmail({
+                    email: user.email,
+                    subject: subject,
+                    message: emailHtml
+                });
+                successCount++;
+             } catch (e) {
+                console.error(`Failed to email ${user.email}:`, e.message);
+             }
+        }
+        console.log(`✅ Broadcast Complete. Sent to ${successCount}/${users.length} users.`);
+    });
+
+    res.json({ message: `Broadcast started for ${users.length} users.` });
+
+  } catch (error) {
+    console.error('Broadcast Error:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
