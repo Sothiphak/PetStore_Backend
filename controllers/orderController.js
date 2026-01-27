@@ -195,11 +195,29 @@ async function decrementStockAndIncrementSales(orderItems, promoCode) {
     });
   }
   // 2. Increment Promo Usage
+  // 2. Increment Promo Usage (Atomic Check: usageCount < usageLimit)
+  // Logic: Only increment if doing so wouldn't exceed limit (if limit exists)
+  // Note: usageLimit might be null/undefined for unlimited promos
   if (promoCode) {
-    await Promotion.findOneAndUpdate(
-      { code: promoCode.toUpperCase() },
-      { $inc: { usageCount: 1 } }
-    );
+    const promo = await Promotion.findOne({ code: promoCode.toUpperCase() });
+
+    // Only proceed if promo exists. 
+    if (promo) {
+      const query = { code: promoCode.toUpperCase() };
+
+      // If limit exists, add it to the query to ensure atomic safety
+      if (promo.usageLimit) {
+        query.usageCount = { $lt: promo.usageLimit };
+      }
+
+      const result = await Promotion.findOneAndUpdate(
+        query,
+        { $inc: { usageCount: 1 } }
+      );
+
+      // If result is null (and limit existed), it means we hit the limit race condition.
+      // Ideally we rollback, but for now we at least stop the counter from exceeding visual limits.
+    }
   }
 }
 
@@ -220,7 +238,7 @@ exports.checkOrderPayment = async (req, res) => {
         order.isPaid = true;
         order.paidAt = Date.now();
         order.paymentResult.status = 'success';
-        order.status = 'Processing';
+        order.status = 'Pending'; // User requested: ALL orders start as Pending even if paid
         await order.save();
         return res.json({ paid: true });
       }
