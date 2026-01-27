@@ -125,7 +125,7 @@ exports.addOrderItems = async (req, res) => {
           };
 
           await order.save();
-          await decrementStockAndIncrementSales(finalOrderItems, promoCode); // Helper function
+          await decrementStockAndIncrementSales(finalOrderItems, promoCode, discountAmount); // Helper function
 
           // 📧 Send "Pending Payment" Invoice
           setImmediate(async () => {
@@ -159,7 +159,7 @@ exports.addOrderItems = async (req, res) => {
     // 🟢 5. STANDARD FLOW
     // =========================================
     const createdOrder = await order.save();
-    await decrementStockAndIncrementSales(finalOrderItems, promoCode);
+    await decrementStockAndIncrementSales(finalOrderItems, promoCode, discountAmount);
 
     res.status(201).json(createdOrder);
 
@@ -184,7 +184,8 @@ exports.addOrderItems = async (req, res) => {
 };
 
 // HELPER: Decrement Stock
-async function decrementStockAndIncrementSales(orderItems, promoCode) {
+// HELPER: Decrement Stock
+async function decrementStockAndIncrementSales(orderItems, promoCode, discountAmount = 0) {
   // 1. Decrement Stock & Increment Sales
   for (const item of orderItems) {
     await Product.findByIdAndUpdate(item.product, {
@@ -212,7 +213,12 @@ async function decrementStockAndIncrementSales(orderItems, promoCode) {
 
       const result = await Promotion.findOneAndUpdate(
         query,
-        { $inc: { usageCount: 1 } }
+        {
+          $inc: {
+            usageCount: 1,
+            totalSavings: discountAmount // Track real savings
+          }
+        }
       );
 
       // If result is null (and limit existed), it means we hit the limit race condition.
