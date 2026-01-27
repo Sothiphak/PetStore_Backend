@@ -236,10 +236,25 @@ async function decrementStockAndIncrementSales(orderItems, promoCode, orderDisco
 
         // If this promo contributed to this order, update stats
         if (promoRedemptions > 0) {
+          // Calculate Revenue Contribution (Price Paid for these items)
+          // Revenue = (Item Price * Qty) - Savings
+          // Or more simply: Discounted Price * Qty.
+          // Since we calculated savings already:
+          // Total Original Price for these items = (Item Price * Qty)
+          let totalOriginalPrice = 0;
+          for (const item of orderItems) {
+            if (applicableProductIds.length === 0 || applicableProductIds.includes(item.product.toString())) {
+              totalOriginalPrice += (item.price * item.quantity);
+            }
+          }
+
+          const revenueContribution = totalOriginalPrice - promoSavings;
+
           await Promotion.findByIdAndUpdate(promo._id, {
             $inc: {
               usageCount: promoRedemptions,
-              totalSavings: promoSavings
+              totalSavings: promoSavings,
+              revenue: revenueContribution // Track Sales Volume
             }
           });
         }
@@ -265,7 +280,8 @@ async function decrementStockAndIncrementSales(orderItems, promoCode, orderDisco
         {
           $inc: {
             usageCount: 1,
-            totalSavings: orderDiscountAmount // Track real savings
+            totalSavings: orderDiscountAmount, // Track real savings
+            revenue: (orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0) - orderDiscountAmount) // Revenue = Total Order Value (post-discount)
           }
         }
       );

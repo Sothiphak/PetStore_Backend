@@ -25,6 +25,7 @@ const PromotionSchema = new mongoose.Schema({
   usageLimit: { type: Number, default: 0 },
   usageCount: { type: Number, default: 0 },
   totalSavings: { type: Number, default: 0 }, // Track actual $ saved
+  revenue: { type: Number, default: 0 }, // Track Total Sales Volume
 
   // NEW: Campaign Type - distinguishes promo codes from product discounts
   campaignType: {
