@@ -50,6 +50,11 @@ exports.createProduct = async (req, res) => {
       imageUrl = req.body.imageUrl;
     }
 
+    // ✅ VALIDATION: Block negative values
+    if (Number(price) < 0 || (stockQuantity && Number(stockQuantity) < 0)) {
+       return res.status(400).json({ message: 'Price and Stock cannot be negative.' });
+    }
+
     const product = new Product({
       name,
       price,
@@ -79,11 +84,16 @@ exports.updateProduct = async (req, res) => {
     const product = await Product.findById(req.params.id);
 
     if (product) {
+      // ✅ VALIDATION: Block negative values
+      if ((price && Number(price) < 0) || (stockQuantity && Number(stockQuantity) < 0)) {
+         return res.status(400).json({ message: 'Price and Stock cannot be negative.' });
+      }
+
       product.name = name || product.name;
-      product.price = price || product.price;
+      product.price = price !== undefined ? price : product.price;
       product.description = description || product.description;
       product.category = category || product.category;
-      product.stockQuantity = stockQuantity || product.stockQuantity;
+      product.stockQuantity = stockQuantity !== undefined ? stockQuantity : product.stockQuantity;
 
       // ✅ Update Image and delete old one from Cloudinary
       if (req.file) {
@@ -204,3 +214,5 @@ exports.getTopProducts = async (req, res) => {
     res.status(500).json({ message: 'Server Error' });
   }
 };
+
+

@@ -24,6 +24,14 @@ exports.createPromotion = async (req, res) => {
     const exists = await Promotion.findOne({ code: code.toUpperCase() });
     if (exists) return res.status(400).json({ message: 'Code already exists' });
 
+    // ✅ VALIDATION: Check Dates & Values
+    if (new Date(startDate) >= new Date(endDate)) {
+      return res.status(400).json({ message: 'End date must be after start date' });
+    }
+    if (value <= 0) {
+      return res.status(400).json({ message: 'Discount value must be positive' });
+    }
+
     const promotion = new Promotion({
       code,
       type,
@@ -57,6 +65,14 @@ exports.updatePromotion = async (req, res) => {
       campaignType, applicableProducts, minPurchase 
     } = req.body;
     
+    // ✅ VALIDATION: Check Dates on Update
+    const start = startDate ? new Date(startDate) : new Date(promo.startDate);
+    const end = endDate ? new Date(endDate) : new Date(promo.endDate);
+    
+    if (start >= end) {
+       return res.status(400).json({ message: 'End date must be after start date' });
+    }
+
     // ✅ FIXED: Added || operators below
     promo.type = type || promo.type;
     promo.value = value !== undefined ? value : promo.value;

@@ -12,44 +12,109 @@ exports.addOrderItems = async (req, res) => {
     }
 
     const {
-      orderItems,
+      orderItems, // [{ product: ID, quantity: N }]
       shippingAddress,
       paymentMethod,
-      itemsPrice,
-      taxPrice,
-      shippingPrice,
-      totalPrice,
+      // itemsPrice,  <-- IGNORED (calculated on server)
+      // taxPrice,    <-- IGNORED
+      // shippingPrice, <-- IGNORED (or validated)
+      // totalPrice,  <-- IGNORED
       isPaid,
       paidAt,
-      promoCode // 🟢 NEW: Receive the code from Frontend
+      promoCode
     } = req.body;
 
     if (!orderItems || orderItems.length === 0) {
       return res.status(400).json({ message: 'No order items' });
     }
 
+    // 🟢 1. FETCH PRODUCTS & VALIDATE STOCK & CALCULATE PRICE
+    // =========================================
+    let calculatedItemsPrice = 0;
+    const finalOrderItems = []; // To store items with DB details (price, image)
+
+    for (const item of orderItems) {
+      const dbProduct = await Product.findById(item.product);
+
+      if (!dbProduct) {
+        return res.status(404).json({ message: `Product not found: ${item.product}` });
+      }
+
+      // Check Stock
+      if (dbProduct.stockQuantity < item.quantity) {
+        return res.status(400).json({ 
+          message: `Insufficient stock for ${dbProduct.name}. Only ${dbProduct.stockQuantity} left.` 
+        });
+      }
+
+      // Add to running total
+      calculatedItemsPrice += dbProduct.price * item.quantity;
+
+      // Push to final array (Snapshotted data)
+      finalOrderItems.push({
+        ...item,
+        name: dbProduct.name,
+        price: dbProduct.price, // Trust DB price
+        image: dbProduct.imageUrl,
+        product: dbProduct._id
+      });
+    }
+
+    // 🟢 2. CALCULATE TAX, SHIPPING, PROMO
+    // =========================================
+    const shippingPrice = calculatedItemsPrice > 50 ? 0 : 5; // Server Logic: Free > $50
+    const taxPrice = Number((0.08 * calculatedItemsPrice).toFixed(2)); // 8% Tax
+    
+    let discountAmount = 0;
+
+    // Validate Coupon (Server Side Again)
+    if (promoCode) {
+      const promo = await Promotion.findOne({ 
+        code: promoCode.toUpperCase(), 
+        isActive: true, // Assuming schema has this or use dates
+      });
+
+      // Basic Re-validation (Date/Usage)
+      const now = new Date();
+      if (promo && now >= promo.startDate && now <= promo.endDate && 
+         (!promo.usageLimit || promo.usageCount < promo.usageLimit)) {
+          
+          if (promo.type === 'percent') {
+            discountAmount = (calculatedItemsPrice * promo.value) / 100;
+          } else if (promo.type === 'fixed') {
+            discountAmount = promo.value;
+          }
+      }
+    }
+
+    // Final Total
+    let finalTotalPrice = calculatedItemsPrice + shippingPrice + taxPrice - discountAmount;
+    if (finalTotalPrice < 0) finalTotalPrice = 0;
+
+    // 🟢 3. CREATE ORDER
+    // =========================================
     const order = new Order({
-      orderItems,
+      orderItems: finalOrderItems,
       user: req.user._id,
       shippingAddress,
       paymentMethod,
-      itemsPrice,
+      itemsPrice: calculatedItemsPrice,
       taxPrice,
       shippingPrice,
-      totalPrice,
+      totalPrice: finalTotalPrice,
       isPaid: isPaid === true,
       paidAt: isPaid ? (paidAt || Date.now()) : null,
       status: 'Pending'
     });
 
     // =========================================
-    // 🟢 1. BAKONG PAYMENT FLOW
+    // 🟢 4. BAKONG PAYMENT FLOW
     // =========================================
     if (paymentMethod === 'Bakong') {
       const billNumber = order._id.toString().slice(-10);
 
       try {
-        const qrResult = await PaymentService.generateKHQR(totalPrice, billNumber);
+        const qrResult = await PaymentService.generateKHQR(finalTotalPrice, billNumber);
 
         if (qrResult.success) {
           order.paymentResult = {
@@ -59,21 +124,9 @@ exports.addOrderItems = async (req, res) => {
           };
 
           await order.save();
+          await decrementStockAndIncrementSales(finalOrderItems, promoCode); // Helper function
 
-          // 🟢 NEW: Increment Coupon Usage (Bakong)
-          if (promoCode) {
-            await Promotion.findOneAndUpdate(
-              { code: promoCode.toUpperCase() },
-              { $inc: { usageCount: 1 } }
-            );
-          }
-
-          // 🟢 NEW: Increment Product Sales Count
-          for (const item of orderItems) {
-            await Product.findByIdAndUpdate(item.product, { $inc: { salesCount: item.quantity } });
-          }
-
-          // 📧 Send "Pending Payment" Invoice for Bakong (before return!)
+          // 📧 Send "Pending Payment" Invoice
           setImmediate(async () => {
             try {
               const invoiceHtml = generateInvoiceHtml(order, req.user);
@@ -82,73 +135,72 @@ exports.addOrderItems = async (req, res) => {
                 subject: 'Pending Invoice - PetStore+ (Scan to Pay)',
                 message: invoiceHtml
               });
-              console.log(`✅ Bakong Invoice sent to ${req.user.email}`);
-            } catch (e) {
-              console.error('❌ Bakong Email failed:', e.message);
-            }
+            } catch (e) { console.error('Email failed:', e.message); }
           });
 
           return res.status(201).json({
             _id: order._id,
             qrImage: qrResult.qrImage,
             isBakong: true,
-            totalPrice,
+            totalPrice: finalTotalPrice,
             paymentMethod
           });
         } else {
-          return res.status(400).json({
-            message: qrResult.message || "Payment Gateway Error: Could not generate KHQR."
-          });
+           return res.status(400).json({ message: "Payment Gateway Error" });
         }
       } catch (err) {
-        console.error("Bakong Service Error:", err);
+        console.error("Bakong Error:", err);
         return res.status(500).json({ message: "Bakong Service Unavailable" });
       }
     }
 
     // =========================================
-    // 🟢 2. STANDARD FLOW (COD, Card, etc.)
+    // 🟢 5. STANDARD FLOW
     // =========================================
     const createdOrder = await order.save();
+    await decrementStockAndIncrementSales(finalOrderItems, promoCode);
 
-    // 🟢 NEW: Increment Coupon Usage (Standard)
-    if (promoCode) {
-      await Promotion.findOneAndUpdate(
-        { code: promoCode.toUpperCase() },
-        { $inc: { usageCount: 1 } }
-      );
-    }
-
-    // 🟢 NEW: Increment Product Sales Count
-    for (const item of orderItems) {
-      await Product.findByIdAndUpdate(item.product, { $inc: { salesCount: item.quantity } });
-    }
-
-    // ✅ SEND RESPONSE IMMEDIATELY
     res.status(201).json(createdOrder);
 
-    // 📧 Send Email AFTER Response (Non-blocking)
-    if (paymentMethod !== 'Bakong') {
-      setImmediate(async () => {
-        try {
-          const invoiceHtml = generateInvoiceHtml(createdOrder, req.user);
-          await sendEmail({
-            email: req.user.email,
-            subject: 'Order Confirmation - PetStore+',
-            message: invoiceHtml
-          });
-          console.log(`✅ Confirmation email sent to ${req.user.email}`);
-        } catch (e) {
-          console.error('❌ Email failed to send:', e.message);
-        }
-      });
-    }
+    // 📧 Send Email
+    setImmediate(async () => {
+      try {
+        const invoiceHtml = generateInvoiceHtml(createdOrder, req.user);
+        await sendEmail({
+          email: req.user.email,
+          subject: 'Order Confirmation - PetStore+',
+          message: invoiceHtml
+        });
+      } catch (e) { 
+        console.error('Email failed:', e.message); 
+      }
+    });
 
   } catch (error) {
     console.error('Order Create Error:', error);
     res.status(500).json({ message: error.message });
   }
 };
+
+// HELPER: Decrement Stock
+async function decrementStockAndIncrementSales(orderItems, promoCode) {
+  // 1. Decrement Stock & Increment Sales
+  for (const item of orderItems) {
+    await Product.findByIdAndUpdate(item.product, { 
+      $inc: { 
+        salesCount: item.quantity,
+        stockQuantity: -item.quantity // 🟢 CRITICAL: Decrement Stock
+      } 
+    });
+  }
+  // 2. Increment Promo Usage
+  if (promoCode) {
+    await Promotion.findOneAndUpdate(
+      { code: promoCode.toUpperCase() },
+      { $inc: { usageCount: 1 } }
+    );
+  }
+}
 
 exports.checkOrderPayment = async (req, res) => {
   try {
