@@ -2,8 +2,8 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto'); 
-const sendEmail = require('../utils/sendEmail'); 
+const crypto = require('crypto');
+const sendEmail = require('../utils/sendEmail');
 
 // 🛡️ VALIDATION HELPERS
 const validatePassword = (password) => {
@@ -87,6 +87,10 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
 
+    if (user && user.isBlocked) {
+      return res.status(403).json({ message: 'Your account has been blocked. Please contact support.' });
+    }
+
     if (user && (await bcrypt.compare(password, user.password))) {
       res.json({
         _id: user._id,
@@ -113,7 +117,7 @@ exports.login = async (req, res) => {
 exports.getUserProfile = async (req, res) => {
   try {
     // req.user is set by the 'protect' middleware
-    const user = await User.findById(req.user._id).select('-password'); 
+    const user = await User.findById(req.user._id).select('-password');
 
     if (user) {
       res.json({
@@ -148,14 +152,14 @@ exports.updateProfile = async (req, res) => {
       user.email = req.body.email || user.email;
       user.phone = req.body.phone || user.phone;
       user.address = req.body.address || user.address;
-      
+
       // 🔐 Password Change Logic (Secure)
       if (req.body.newPassword) {
         // Verify current password first
         if (!req.body.currentPassword) {
           return res.status(400).json({ message: 'Current password is required' });
         }
-        
+
         const isMatch = await bcrypt.compare(req.body.currentPassword, user.password);
         if (!isMatch) {
           return res.status(400).json({ message: 'Current password is incorrect' });
@@ -166,7 +170,7 @@ exports.updateProfile = async (req, res) => {
         if (passwordError) {
           return res.status(400).json({ message: passwordError });
         }
-        
+
         // Hash and save new password
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(req.body.newPassword, salt);
@@ -283,13 +287,36 @@ exports.resetPassword = async (req, res) => {
   }
 
 }
-  // @desc    Get all users (Admin only)
+// @desc    Get all users (Admin only)
 // @route   GET /api/auth/users
 // @access  Private/Admin
 exports.getUsers = async (req, res) => {
   try {
     const users = await User.find({}).select('-password').sort({ createdAt: -1 });
     res.json(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// @desc    Block/Unblock a user
+// @route   PUT /api/auth/users/:id/block
+// @access  Private/Admin
+exports.toggleBlockStatus = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (user) {
+      if (user.role === 'admin') {
+        return res.status(400).json({ message: 'Cannot block an admin' });
+      }
+      user.isBlocked = req.body.isBlocked;
+      const updatedUser = await user.save();
+      res.json({ message: `User ${updatedUser.isBlocked ? 'blocked' : 'unblocked'}`, isBlocked: updatedUser.isBlocked });
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server Error' });

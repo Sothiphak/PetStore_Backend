@@ -1,14 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
-const { 
-  register, 
-  login, 
-  getUserProfile, 
+const {
+  register,
+  login,
+  getUserProfile,
   updateProfile,
-  forgotPassword, 
+  forgotPassword,
   resetPassword,
-  getUsers // 👈 Import the new function
+  getUsers, // 👈 Import the new function
+  toggleBlockStatus // Import toggleBlockStatus
 } = require('../controllers/authController');
 
 const { protect, admin } = require('../middleware/authMiddleware');
@@ -25,7 +26,7 @@ const authLimiter = rateLimit({
 router.post('/register', register);
 router.post('/login', authLimiter, login);
 
-router.get('/profile', protect, getUserProfile); 
+router.get('/profile', protect, getUserProfile);
 router.put('/profile', protect, updateProfile);
 
 router.post('/forgot-password', forgotPassword);
@@ -33,5 +34,6 @@ router.post('/reset-password', resetPassword);
 
 // 👇 ADD THIS ROUTE FOR THE CUSTOMERS PAGE
 router.get('/users', protect, admin, getUsers);
+router.put('/users/:id/block', protect, admin, toggleBlockStatus);
 
 module.exports = router;
