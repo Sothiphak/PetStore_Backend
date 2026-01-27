@@ -19,27 +19,34 @@ router.post('/create-payment-intent', protect, async (req, res) => {
     }
 
     // 🛡️ SECURITY: Calculate Total Price on Server
-    // Do NOT trust the total amount sent from frontend
-    let totalAmount = 0;
+    let subtotal = 0;
 
     for (const item of items) {
       // Fetch product from DB to get the REAL price
       const product = await Product.findById(item._id);
-      
+
       if (product) {
-        totalAmount += product.price * item.qty;
+        subtotal += product.price * item.qty;
       } else {
         console.warn(`Product not found during payment: ${item._id}`);
       }
     }
 
+    const SHIPPING_COST = 5.00;
+    const TAX_RATE = 0.08;
+
+    // Calculate final total including Tax and Shipping
+    // Note: This matches frontend logic. For production, consider handling discounts (promo codes) here too.
+    const taxAmount = subtotal * TAX_RATE;
+    const totalAmount = subtotal + taxAmount + SHIPPING_COST;
+
     // Stripe expects amount in cents (integer)
-    // Example: $20.50 => 2050 cents
     const finalAmount = Math.round(totalAmount * 100);
 
     // Prevent zero-dollar transactions
     if (finalAmount < 50) { // Stripe minimum is usually ~50 cents
-       return res.status(400).json({ error: "Transaction amount too low" });
+      console.error(`Transaction amount too low: ${finalAmount} cents`);
+      return res.status(400).json({ error: `Transaction amount too low (Min $0.50). Total: $${totalAmount.toFixed(2)}` });
     }
 
     // Create Payment Intent
