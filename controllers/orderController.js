@@ -42,8 +42,8 @@ exports.addOrderItems = async (req, res) => {
 
       // Check Stock
       if (dbProduct.stockQuantity < item.quantity) {
-        return res.status(400).json({ 
-          message: `Insufficient stock for ${dbProduct.name}. Only ${dbProduct.stockQuantity} left.` 
+        return res.status(400).json({
+          message: `Insufficient stock for ${dbProduct.name}. Only ${dbProduct.stockQuantity} left.`
         });
       }
 
@@ -64,26 +64,26 @@ exports.addOrderItems = async (req, res) => {
     // =========================================
     const shippingPrice = calculatedItemsPrice > 50 ? 0 : 5; // Server Logic: Free > $50
     const taxPrice = Number((0.08 * calculatedItemsPrice).toFixed(2)); // 8% Tax
-    
+
     let discountAmount = 0;
 
     // Validate Coupon (Server Side Again)
     if (promoCode) {
-      const promo = await Promotion.findOne({ 
-        code: promoCode.toUpperCase(), 
+      const promo = await Promotion.findOne({
+        code: promoCode.toUpperCase(),
         isActive: true, // Assuming schema has this or use dates
       });
 
       // Basic Re-validation (Date/Usage)
       const now = new Date();
-      if (promo && now >= promo.startDate && now <= promo.endDate && 
-         (!promo.usageLimit || promo.usageCount < promo.usageLimit)) {
-          
-          if (promo.type === 'percent') {
-            discountAmount = (calculatedItemsPrice * promo.value) / 100;
-          } else if (promo.type === 'fixed') {
-            discountAmount = promo.value;
-          }
+      if (promo && now >= promo.startDate && now <= promo.endDate &&
+        (!promo.usageLimit || promo.usageCount < promo.usageLimit)) {
+
+        if (promo.type === 'percent') {
+          discountAmount = (calculatedItemsPrice * promo.value) / 100;
+        } else if (promo.type === 'fixed') {
+          discountAmount = promo.value;
+        }
       }
     }
 
@@ -104,7 +104,8 @@ exports.addOrderItems = async (req, res) => {
       totalPrice: finalTotalPrice,
       isPaid: isPaid === true,
       paidAt: isPaid ? (paidAt || Date.now()) : null,
-      status: 'Pending'
+      status: 'Pending',
+      promoCode: promoCode ? promoCode.toUpperCase() : null
     });
 
     // =========================================
@@ -146,7 +147,7 @@ exports.addOrderItems = async (req, res) => {
             paymentMethod
           });
         } else {
-           return res.status(400).json({ message: "Payment Gateway Error" });
+          return res.status(400).json({ message: "Payment Gateway Error" });
         }
       } catch (err) {
         console.error("Bakong Error:", err);
@@ -171,8 +172,8 @@ exports.addOrderItems = async (req, res) => {
           subject: 'Order Confirmation - PetStore+',
           message: invoiceHtml
         });
-      } catch (e) { 
-        console.error('Email failed:', e.message); 
+      } catch (e) {
+        console.error('Email failed:', e.message);
       }
     });
 
@@ -186,11 +187,11 @@ exports.addOrderItems = async (req, res) => {
 async function decrementStockAndIncrementSales(orderItems, promoCode) {
   // 1. Decrement Stock & Increment Sales
   for (const item of orderItems) {
-    await Product.findByIdAndUpdate(item.product, { 
-      $inc: { 
+    await Product.findByIdAndUpdate(item.product, {
+      $inc: {
         salesCount: item.quantity,
         stockQuantity: -item.quantity // 🟢 CRITICAL: Decrement Stock
-      } 
+      }
     });
   }
   // 2. Increment Promo Usage

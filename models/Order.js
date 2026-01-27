@@ -80,6 +80,10 @@ const orderSchema = new mongoose.Schema({
     enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
     index: true // ✅ Index for status filtering
   },
+  promoCode: {
+    type: String,
+    required: false
+  }
 }, {
   timestamps: true, // Automatically adds createdAt and updatedAt
 });
