@@ -184,45 +184,91 @@ exports.addOrderItems = async (req, res) => {
 };
 
 // HELPER: Decrement Stock
-// HELPER: Decrement Stock
-async function decrementStockAndIncrementSales(orderItems, promoCode, discountAmount = 0) {
+// HELPER: Decrement Stock & Track Product Discounts
+async function decrementStockAndIncrementSales(orderItems, promoCode, orderDiscountAmount = 0) {
   // 1. Decrement Stock & Increment Sales
   for (const item of orderItems) {
     await Product.findByIdAndUpdate(item.product, {
       $inc: {
         salesCount: item.quantity,
-        stockQuantity: -item.quantity // 🟢 CRITICAL: Decrement Stock
+        stockQuantity: -item.quantity
       }
     });
   }
-  // 2. Increment Promo Usage
-  // 2. Increment Promo Usage (Atomic Check: usageCount < usageLimit)
-  // Logic: Only increment if doing so wouldn't exceed limit (if limit exists)
-  // Note: usageLimit might be null/undefined for unlimited promos
+
+  const now = new Date();
+
+  // 2. Track "Product Discount" Usage (Automatic Campaigns)
+  // We need to check if any items in this order were eligible for a product discount
+  try {
+    const activeProductPromos = await Promotion.find({
+      campaignType: 'product_discount',
+      isActive: true,
+      startDate: { $lte: now },
+      endDate: { $gte: now }
+    });
+
+    if (activeProductPromos.length > 0) {
+      for (const promo of activeProductPromos) {
+        let promoSavings = 0;
+        let promoRedemptions = 0;
+
+        // Check which items this promo applies to
+        const applicableProductIds = promo.applicableProducts.map(id => id.toString());
+
+        for (const item of orderItems) {
+          // If promo applies to ALL (empty list) or SPECIFIC product
+          if (applicableProductIds.length === 0 || applicableProductIds.includes(item.product.toString())) {
+
+            // Calculate what the savings *were* (or would be) for this item
+            // Note: This matches how we display it on frontend
+            let itemSavings = 0;
+            if (promo.type === 'percent') {
+              itemSavings = (item.price * promo.value / 100) * item.quantity;
+            } else {
+              itemSavings = promo.value * item.quantity;
+            }
+
+            promoSavings += itemSavings;
+            promoRedemptions += item.quantity;
+          }
+        }
+
+        // If this promo contributed to this order, update stats
+        if (promoRedemptions > 0) {
+          await Promotion.findByIdAndUpdate(promo._id, {
+            $inc: {
+              usageCount: promoRedemptions,
+              totalSavings: promoSavings
+            }
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Failed to track product discounts:", err);
+  }
+
+  // 3. Track "Promo Code" Usage (Cart Coupon)
   if (promoCode) {
     const promo = await Promotion.findOne({ code: promoCode.toUpperCase() });
 
-    // Only proceed if promo exists. 
     if (promo) {
       const query = { code: promoCode.toUpperCase() };
 
-      // If limit exists, add it to the query to ensure atomic safety
       if (promo.usageLimit) {
         query.usageCount = { $lt: promo.usageLimit };
       }
 
-      const result = await Promotion.findOneAndUpdate(
+      await Promotion.findOneAndUpdate(
         query,
         {
           $inc: {
             usageCount: 1,
-            totalSavings: discountAmount // Track real savings
+            totalSavings: orderDiscountAmount // Track real savings
           }
         }
       );
-
-      // If result is null (and limit existed), it means we hit the limit race condition.
-      // Ideally we rollback, but for now we at least stop the counter from exceeding visual limits.
     }
   }
 }
