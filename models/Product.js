@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-// 1. Define the Schema for a single review
+// Define the Schema for a single review
 const reviewSchema = mongoose.Schema({
   name: { type: String, required: true },
   rating: { type: Number, required: true },
@@ -12,7 +12,7 @@ const reviewSchema = mongoose.Schema({
   },
 }, { timestamps: true });
 
-// 2. Update the Product Schema
+// Update the Product Schema
 const ProductSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String, required: true },
@@ -21,12 +21,12 @@ const ProductSchema = new mongoose.Schema({
   stockQuantity: { type: Number, required: true, default: 0 },
   imageUrl: { type: String, required: true },
   
-  // 👇 NEW: Reviews Array & Ratings
+  // Reviews Array & Ratings
   reviews: [reviewSchema],
   rating: { type: Number, required: true, default: 0 },
 
   numReviews: { type: Number, required: true, default: 0 },
-  salesCount: { type: Number, required: true, default: 0 }, // 🟢 NEW: Track Sales
+  salesCount: { type: Number, required: true, default: 0 }, // Track Sales
 
 }, { timestamps: true });
 

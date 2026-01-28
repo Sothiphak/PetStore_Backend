@@ -5,7 +5,7 @@ const orderSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     required: true,
     ref: 'User',
-    index: true // ✅ Index for faster user queries
+    index: true
   },
   orderItems: [
     {
@@ -61,7 +61,7 @@ const orderSchema = new mongoose.Schema({
     type: Boolean,
     required: true,
     default: false,
-    index: true // ✅ Index for payment status queries
+    index: true
   },
   paidAt: {
     type: Date,
@@ -78,20 +78,20 @@ const orderSchema = new mongoose.Schema({
     type: String,
     default: 'Pending',
     enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
-    index: true // ✅ Index for status filtering
+    index: true
   },
   promoCode: {
     type: String,
     required: false
   }
 }, {
-  timestamps: true, // Automatically adds createdAt and updatedAt
+  timestamps: true,
 });
 
-// ✅ Compound index for common queries (user orders sorted by date)
+// Compound index for common queries
 orderSchema.index({ user: 1, createdAt: -1 });
 
-// ✅ Index for payment verification queries
+// Index for payment verification queries
 orderSchema.index({ 'paymentResult.id': 1 });
 
 module.exports = mongoose.model('Order', orderSchema);

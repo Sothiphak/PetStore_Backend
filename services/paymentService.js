@@ -1,7 +1,7 @@
 const { BakongKHQR, khqrData, MerchantInfo } = require("bakong-khqr");
 const axios = require('axios');
 
-// 🟢 SAFE SANDBOX CREDENTIALS
+// Sandbox Credentials
 const BAKONG_ACCOUNT_ID = "test_bakong@devb"; 
 const MERCHANT_ID = 1243546472; // Must be a NUMBER, not string
 const MERCHANT_NAME = "PetStore+";
@@ -32,7 +32,7 @@ class PaymentService {
                 merchantCategoryCode: "5999", // General merchandise
             };
 
-            // 3. 🟢 CRITICAL: Use MerchantInfo CLASS instead of plain object
+            // Use MerchantInfo Class instead of plain object
             const merchantInfo = new MerchantInfo(
                 BAKONG_ACCOUNT_ID,
                 MERCHANT_NAME,
@@ -55,7 +55,7 @@ class PaymentService {
                 // Public API for QR Image
                 const qrImage = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrString)}`;
 
-                console.log("✅ QR Generated Successfully");
+                console.log("QR Generated Successfully");
 
                 return {
                     success: true,
@@ -64,14 +64,14 @@ class PaymentService {
                     qrImage: qrImage
                 };
             } else {
-                console.error("❌ KHQR Gen Error:", response);
+                console.error("KHQR Gen Error:", response);
                 return { 
                     success: false, 
                     message: `KHQR Error: ${response.status.message || 'Invalid Data'}` 
                 };
             }
         } catch (error) {
-            console.error("💥 Payment Service Exception:", error);
+            console.error("Payment Service Exception:", error);
             return { success: false, message: error.message };
         }
     }
@@ -80,7 +80,7 @@ class PaymentService {
         // Auto-approve after 3 seconds for DEMO purposes
         return new Promise((resolve) => {
             setTimeout(() => {
-                console.log("✅ Simulating Payment Success for:", md5);
+                console.log("Simulating Payment Success for:", md5);
                 resolve(true); 
             }, 3000); 
         });

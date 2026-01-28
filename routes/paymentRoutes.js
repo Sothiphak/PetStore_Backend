@@ -18,7 +18,7 @@ router.post('/create-payment-intent', protect, async (req, res) => {
       return res.status(400).json({ error: "No items in cart" });
     }
 
-    // 🛡️ SECURITY: Calculate Total Price on Server
+    // Calculate Total Price on Server
     let subtotal = 0;
 
     for (const item of items) {
@@ -36,7 +36,6 @@ router.post('/create-payment-intent', protect, async (req, res) => {
     const TAX_RATE = 0.08;
 
     // Calculate final total including Tax and Shipping
-    // Note: This matches frontend logic. For production, consider handling discounts (promo codes) here too.
     const taxAmount = subtotal * TAX_RATE;
     const totalAmount = subtotal + taxAmount + SHIPPING_COST;
 

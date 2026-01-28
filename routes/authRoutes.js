@@ -8,13 +8,13 @@ const {
   updateProfile,
   forgotPassword,
   resetPassword,
-  getUsers, // 👈 Import the new function
-  toggleBlockStatus // Import toggleBlockStatus
+  getUsers,
+  toggleBlockStatus
 } = require('../controllers/authController');
 
 const { protect, admin } = require('../middleware/authMiddleware');
 
-// 🛡️ Stricter rate limiting for authentication (5 attempts per 15 minutes)
+// Stricter rate limiting for authentication
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5,
@@ -32,7 +32,7 @@ router.put('/profile', protect, updateProfile);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 
-// 👇 ADD THIS ROUTE FOR THE CUSTOMERS PAGE
+// User Management (Admin)
 router.get('/users', protect, admin, getUsers);
 router.put('/users/:id/block', protect, admin, toggleBlockStatus);
 

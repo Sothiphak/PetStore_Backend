@@ -12,9 +12,9 @@ const testEmail = async () => {
             subject: 'Test Email from PetStore+',
             message: '<h1>It works!</h1><p>Your email configuration is correct.</p>'
         });
-        console.log("✅ Email sent successfully!");
+        console.log("Email sent successfully!");
     } catch (error) {
-        console.error("❌ Email failed:", error);
+        console.error("Email failed:", error);
     }
 };
 

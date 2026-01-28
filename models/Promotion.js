@@ -27,20 +27,20 @@ const PromotionSchema = new mongoose.Schema({
   totalSavings: { type: Number, default: 0 }, // Track actual $ saved
   revenue: { type: Number, default: 0 }, // Track Total Sales Volume
 
-  // NEW: Campaign Type - distinguishes promo codes from product discounts
+  // Campaign Type
   campaignType: {
     type: String,
     enum: ['promo_code', 'product_discount'],
     default: 'promo_code'
   },
 
-  // NEW: Applicable Products - which products this discount applies to
+  // Applicable Products
   applicableProducts: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Product'
   }],
 
-  // NEW: Minimum Purchase - only for promo_code type
+  // Minimum Purchase
   minPurchase: {
     type: Number,
     default: 0

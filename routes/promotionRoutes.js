@@ -7,7 +7,7 @@ const {
   validatePromotion,
   getProductDiscounts,
   updatePromotion,
-  broadcastPromotion // 🟢 NEW
+  broadcastPromotion
 } = require('../controllers/promotionController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
@@ -16,17 +16,17 @@ router.route('/')
   .get(protect, admin, getPromotions)
   .post(protect, admin, createPromotion);
 
-// 🟢 NEW: Public Route for Product Badges (MUST come before /:id)
+// Public Route for Product Badges
 router.get('/product-discounts', getProductDiscounts); 
 
-// 🟢 Broadcast Promotion Email
+// Broadcast Promotion Email
 router.post('/:id/broadcast', protect, admin, broadcastPromotion);
 
 router.route('/:id')
   .put(protect, admin, updatePromotion)
   .delete(protect, admin, deletePromotion);
 
-// 🟢 Public Route for Customers (Validate Code)
+// Public Route for Customers (Validate Code)
 router.post('/validate', validatePromotion);
 
 module.exports = router;

@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const sendEmail = require('../utils/sendEmail');
 
-// 🛡️ VALIDATION HELPERS
+// Validation Helpers
 const validatePassword = (password) => {
   if (!password) return 'Password is required';
   if (password.length < 8) return 'Password must be at least 8 characters';
@@ -35,12 +35,12 @@ exports.register = async (req, res) => {
   try {
     const { firstName, lastName, email, password } = req.body;
 
-    // 🛡️ Validate email format
+    // Validate email format
     if (!validateEmail(email)) {
       return res.status(400).json({ message: 'Please provide a valid email address' });
     }
 
-    // 🛡️ Validate password strength
+    // Validate password strength
     const passwordError = validatePassword(password);
     if (passwordError) {
       return res.status(400).json({ message: passwordError });
@@ -54,7 +54,7 @@ exports.register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // ✅ UPDATED: Use Default Names if none provided
+    // Use Default Names if none provided
     const user = await User.create({
       firstName: firstName || 'Pet',   // Default to "Pet"
       lastName: lastName || 'Lover',   // Default to "Lover"
@@ -153,7 +153,7 @@ exports.updateProfile = async (req, res) => {
       user.phone = req.body.phone || user.phone;
       user.address = req.body.address || user.address;
 
-      // 🔐 Password Change Logic (Secure)
+      // Password Change Logic
       if (req.body.newPassword) {
         // Verify current password first
         if (!req.body.currentPassword) {
@@ -165,7 +165,7 @@ exports.updateProfile = async (req, res) => {
           return res.status(400).json({ message: 'Current password is incorrect' });
         }
 
-        // 🛡️ Validate new password strength
+        // Validate new password strength
         const passwordError = validatePassword(req.body.newPassword);
         if (passwordError) {
           return res.status(400).json({ message: passwordError });
@@ -264,7 +264,7 @@ exports.resetPassword = async (req, res) => {
       return res.status(400).json({ message: 'Invalid or expired token' });
     }
 
-    // 🛡️ Validate new password strength
+    // Validate new password strength
     const passwordError = validatePassword(req.body.newPassword);
     if (passwordError) {
       return res.status(400).json({ message: passwordError });

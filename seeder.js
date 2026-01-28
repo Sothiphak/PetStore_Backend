@@ -11,15 +11,15 @@ const importData = async () => {
 
     // 1. Clear existing products (Optional: Comment out if you want to keep old ones)
     await Product.deleteMany();
-    console.log('🗑️  Old Data Destroyed...');
+    console.log('Old Data Destroyed...');
 
     // 2. Insert new products
     await Product.insertMany(products);
-    console.log('🌱 Data Imported Successfully!');
+    console.log('Data Imported Successfully!');
 
     process.exit();
   } catch (error) {
-    console.error(`❌ Error: ${error.message}`);
+    console.error(`Error: ${error.message}`);
     process.exit(1);
   }
 };

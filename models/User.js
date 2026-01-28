@@ -8,20 +8,20 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true,
-    maxlength: 50 // 🛡️ Limit field length
+    maxlength: 50
   },
   lastName: {
     type: String,
     required: true,
     trim: true,
-    maxlength: 50 // 🛡️ Limit field length
+    maxlength: 50
   },
   email: {
     type: String,
     required: true,
     unique: true,
     lowercase: true,
-    maxlength: 255 // 🛡️ Limit field length
+    maxlength: 255
   },
   password: {
     type: String,
@@ -34,13 +34,13 @@ const UserSchema = new mongoose.Schema({
   wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
   isBlocked: { type: Boolean, default: false },
 
-  // 👇 ADD THESE NEW FIELDS FOR RESET TOKEN 👇
+  // Reset Password Fields
   resetPasswordToken: String,
   resetPasswordExpire: Date
 
 }, { timestamps: true });
 
-// 👇 ADD THIS METHOD to generate the token 👇
+// Generate Password Reset Token
 UserSchema.methods.getResetPasswordToken = function () {
   // 1. Generate a random token
   const resetToken = crypto.randomBytes(20).toString('hex');

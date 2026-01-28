@@ -24,7 +24,7 @@ exports.createPromotion = async (req, res) => {
     const exists = await Promotion.findOne({ code: code.toUpperCase() });
     if (exists) return res.status(400).json({ message: 'Code already exists' });
 
-    // ✅ VALIDATION: Check Dates & Values
+    // Validation: Check Dates & Values
     if (new Date(startDate) >= new Date(endDate)) {
       return res.status(400).json({ message: 'End date must be after start date' });
     }
@@ -39,9 +39,9 @@ exports.createPromotion = async (req, res) => {
       startDate,
       endDate,
       usageLimit,
-      campaignType: campaignType || 'promo_code',      // ✅ FIXED: Added ||
-      applicableProducts: applicableProducts || [],    // ✅ FIXED: Added ||
-      minPurchase: minPurchase || 0                    // ✅ FIXED: Added ||
+      campaignType: campaignType || 'promo_code',
+      applicableProducts: applicableProducts || [],
+      minPurchase: minPurchase || 0
     });
 
     const created = await promotion.save();
@@ -65,7 +65,7 @@ exports.updatePromotion = async (req, res) => {
       campaignType, applicableProducts, minPurchase 
     } = req.body;
     
-    // ✅ VALIDATION: Check Dates on Update
+    // Validation: Check Dates on Update
     const start = startDate ? new Date(startDate) : new Date(promo.startDate);
     const end = endDate ? new Date(endDate) : new Date(promo.endDate);
     
@@ -73,7 +73,7 @@ exports.updatePromotion = async (req, res) => {
        return res.status(400).json({ message: 'End date must be after start date' });
     }
 
-    // ✅ FIXED: Added || operators below
+    // Update fields (use existing if not provided)
     promo.type = type || promo.type;
     promo.value = value !== undefined ? value : promo.value;
     promo.startDate = startDate || promo.startDate;
@@ -154,7 +154,7 @@ exports.validatePromotion = async (req, res) => {
 
     // 1. Check Dates
     const now = new Date();
-    // ✅ FIXED: Added || operator
+    // Validating dates
     if (now < new Date(promo.startDate) || now > new Date(promo.endDate)) { 
       return res.status(400).json({ message: 'This promotion is not active yet or has expired' });
     }
@@ -166,7 +166,6 @@ exports.validatePromotion = async (req, res) => {
 
     // 3. Check Minimum Purchase
     if (promo.minPurchase > 0 && cartTotal < promo.minPurchase) {
-      // ✅ FIXED: Added backticks
       return res.status(400).json({ 
         message: `Minimum purchase of $${promo.minPurchase} required` 
       });
@@ -227,7 +226,7 @@ exports.broadcastPromotion = async (req, res) => {
     // NOTE: In production, use a Message Queue (BullMQ, RabbitMQ)
     setImmediate(async () => {
         let successCount = 0;
-        console.log(`🚀 Starting Broadcast for Promo: ${promotion.code} to ${users.length} users...`);
+        console.log(`Starting Broadcast for Promo: ${promotion.code} to ${users.length} users...`);
         
         for (const user of users) {
              try {
@@ -241,7 +240,7 @@ exports.broadcastPromotion = async (req, res) => {
                 console.error(`Failed to email ${user.email}:`, e.message);
              }
         }
-        console.log(`✅ Broadcast Complete. Sent to ${successCount}/${users.length} users.`);
+        console.log(`Broadcast Complete. Sent to ${successCount}/${users.length} users.`);
     });
 
     res.json({ message: `Broadcast started for ${users.length} users.` });

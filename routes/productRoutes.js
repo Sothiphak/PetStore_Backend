@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { storage } = require('../config/cloudinary'); // ✅ Import Cloudinary storage
+const { storage } = require('../config/cloudinary');
 const { 
   getProducts, 
   getProductById, 
@@ -9,11 +9,11 @@ const {
   updateProduct,
   deleteProduct,
   createProductReview,
-  getTopProducts // 🟢 NEW
+  getTopProducts
 } = require('../controllers/productController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
-// ✅ Use Cloudinary storage instead of local disk storage
+// Use Cloudinary storage
 const upload = multer({ 
   storage: storage,
   limits: {
@@ -30,11 +30,11 @@ const upload = multer({
 });
 
 // Routes
-router.get('/top', getTopProducts); // 🟢 NEW: Top Products
+router.get('/top', getTopProducts); // Top Products
 router.get('/', getProducts);
 router.get('/:id', getProductById);
 
-// ✅ Protected Routes with Cloudinary Upload
+// Protected Routes with Cloudinary Upload
 router.post('/', protect, admin, upload.single('image'), createProduct);
 router.put('/:id', protect, admin, upload.single('image'), updateProduct);
 router.delete('/:id', protect, admin, deleteProduct);

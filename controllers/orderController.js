@@ -1,6 +1,6 @@
 const Order = require('../models/Order');
 const Product = require('../models/Product');
-const Promotion = require('../models/Promotion'); // 🟢 NEW: Import Promotion
+const Promotion = require('../models/Promotion');
 const sendEmail = require('../utils/sendEmail');
 const PaymentService = require('../services/paymentService');
 const { generateInvoiceHtml } = require('../utils/invoiceTemplate');
@@ -15,10 +15,6 @@ exports.addOrderItems = async (req, res) => {
       orderItems, // [{ product: ID, quantity: N }]
       shippingAddress,
       paymentMethod,
-      // itemsPrice,  <-- IGNORED (calculated on server)
-      // taxPrice,    <-- IGNORED
-      // shippingPrice, <-- IGNORED (or validated)
-      // totalPrice,  <-- IGNORED
       isPaid,
       paidAt,
       promoCode
@@ -28,7 +24,7 @@ exports.addOrderItems = async (req, res) => {
       return res.status(400).json({ message: 'No order items' });
     }
 
-    // 🟢 1. FETCH PRODUCTS & VALIDATE STOCK & CALCULATE PRICE
+    // 1. Fetch products and validate stock
     // =========================================
     let calculatedItemsPrice = 0;
     const finalOrderItems = []; // To store items with DB details (price, image)
@@ -60,7 +56,7 @@ exports.addOrderItems = async (req, res) => {
       });
     }
 
-    // 🟢 2. CALCULATE TAX, SHIPPING, PROMO
+    // 2. Calculate Tax, Shipping, and Promos
     // =========================================
     const shippingPrice = calculatedItemsPrice > 50 ? 0 : 5; // Server Logic: Free > $50
     const taxPrice = Number((0.08 * calculatedItemsPrice).toFixed(2)); // 8% Tax
@@ -91,7 +87,7 @@ exports.addOrderItems = async (req, res) => {
     let finalTotalPrice = calculatedItemsPrice + shippingPrice + taxPrice - discountAmount;
     if (finalTotalPrice < 0) finalTotalPrice = 0;
 
-    // 🟢 3. CREATE ORDER
+    // 3. Create Order
     // =========================================
     const order = new Order({
       orderItems: finalOrderItems,
@@ -109,7 +105,7 @@ exports.addOrderItems = async (req, res) => {
     });
 
     // =========================================
-    // 🟢 4. BAKONG PAYMENT FLOW
+    // 4. Bakong Payment Flow
     // =========================================
     if (paymentMethod === 'Bakong') {
       const billNumber = order._id.toString().slice(-10);
@@ -127,7 +123,7 @@ exports.addOrderItems = async (req, res) => {
           await order.save();
           await decrementStockAndIncrementSales(finalOrderItems, promoCode, discountAmount); // Helper function
 
-          // 📧 Send "Pending Payment" Invoice
+          // Send "Pending Payment" Invoice
           setImmediate(async () => {
             try {
               const invoiceHtml = generateInvoiceHtml(order, req.user);
@@ -156,14 +152,14 @@ exports.addOrderItems = async (req, res) => {
     }
 
     // =========================================
-    // 🟢 5. STANDARD FLOW
+    // 5. Standard Flow
     // =========================================
     const createdOrder = await order.save();
     await decrementStockAndIncrementSales(finalOrderItems, promoCode, discountAmount);
 
     res.status(201).json(createdOrder);
 
-    // 📧 Send Email
+    // Send Email
     setImmediate(async () => {
       try {
         const invoiceHtml = generateInvoiceHtml(createdOrder, req.user);
@@ -183,7 +179,6 @@ exports.addOrderItems = async (req, res) => {
   }
 };
 
-// HELPER: Decrement Stock
 // HELPER: Decrement Stock & Track Product Discounts
 async function decrementStockAndIncrementSales(orderItems, promoCode, orderDiscountAmount = 0) {
   // 1. Decrement Stock & Increment Sales
@@ -221,7 +216,6 @@ async function decrementStockAndIncrementSales(orderItems, promoCode, orderDisco
           if (applicableProductIds.length === 0 || applicableProductIds.includes(item.product.toString())) {
 
             // Calculate what the savings *were* (or would be) for this item
-            // Note: This matches how we display it on frontend
             let itemSavings = 0;
             if (promo.type === 'percent') {
               itemSavings = (item.price * promo.value / 100) * item.quantity;
@@ -378,7 +372,7 @@ exports.updateOrderStatus = async (req, res) => {
 
       const updatedOrder = await order.save();
 
-      // 📧 Send Email Notification if status changed
+      // Send Email Notification if status changed
       if (oldStatus !== status) {
         const { getOrderStatusHtml } = require('../utils/emailTemplates'); // Lazy load
 
@@ -390,9 +384,9 @@ exports.updateOrderStatus = async (req, res) => {
               subject: `Order Update #${order._id} - ${status}`,
               message: emailHtml
             });
-            console.log(`✅ Order status email sent to ${order.user.email}`);
+            console.log(`Order status email sent to ${order.user.email}`);
           } catch (e) {
-            console.error('❌ Failed to send status email:', e.message);
+            console.error('Failed to send status email:', e.message);
           }
         });
       }
@@ -407,14 +401,14 @@ exports.updateOrderStatus = async (req, res) => {
   }
 };
 
-// 🟢 NEW: Secure Pay Endpoint (Admin OR Owner)
+// Update order to paid
 exports.updateOrderToPaid = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
 
     if (order) {
-      // 🔒 SECURE: Check if User is Owner OR Admin
-      if (order.user.toString() !== req.user._id.toString() && !req.user.isAdmin) {
+      // Check if User is Owner OR Admin
+      if (order.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
         return res.status(401).json({ message: 'Not authorized to update this order' });
       }
 
