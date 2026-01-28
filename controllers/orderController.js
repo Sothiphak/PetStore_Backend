@@ -409,7 +409,7 @@ exports.updateOrderToPaid = async (req, res) => {
     if (order) {
       // Check if User is Owner OR Admin
       if (order.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-        return res.status(401).json({ message: 'Not authorized to update this order' });
+        return res.status(403).json({ message: 'Not authorized to update this order' });
       }
 
       // Handle Cash/COD Confirmation (Not Paid, but Method Update)
